@@ -7,7 +7,7 @@
 One JSON object per line, appended, never rewritten:
 
     {"time": "2026-11-18T14:02:11+00:00", "role": "verifier", "kind": "question", "q": 1,
-     "eq": "12", "sender": "@koni_master_hermes_bot", "message_id": 812, "reply_to": 790,
+     "eq": "12", "sender": "verifier", "message_id": 812, "reply_to": 790,
      "text": "eq (12) is \\simeq with no regime. Does the paper state k H >> 1?",
      "files": [{"name": "equations.json", "sha256": "..."}]}
 

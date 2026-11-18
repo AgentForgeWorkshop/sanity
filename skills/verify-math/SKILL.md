@@ -50,13 +50,21 @@ Fix the check.
 Use the **cheapest engine that can settle the claim**, and give it a budget up
 front. Go down the table and take the first row that fits:
 
-| Claim | Engine (evidence) | Budget per claim | If it does not settle |
-|---|---|---|---|
-| Units or dimensions | python, exponent bookkeeping (`symbolic`) | 60 s, 3k tokens | ask the Reader for the units of each symbol |
-| Exact algebraic or trigonometric identity, or a derivation step | SymPy `simplify` / `expand` (`symbolic`; a nonzero residual under the stated assumptions is a FAILS) | 120 s, 5k tokens | numerical row below |
-| `approx` or `sim` with a stated regime | SymPy `limit` / `series` (`asymptotic`) | 120 s, 15k tokens | sample inside the regime (`numerical`) |
-| No closed form: integrals, special functions, simplify stalls | sampling, ≥ 200 points, fixed seed (`numerical`, or `counterexample` on a clear miss) | 300 s, 10k tokens | UNCHECKED with what was tried |
-| Exact claim a person asked you to prove, or one of a paper's few **central** exact claims, statable over Nat or Int | **Lean** in addition to SymPy (`proof`, or `refutation` via the negation) | 3 compile attempts, 120 s each, 30k tokens | keep the SymPy result; the Lean check stays UNCHECKED |
+| Claim | Engine (evidence) | Budget per claim | Typical time | If it does not settle |
+|---|---|---|---|---|
+| Definition, nothing to decide | none (`UNCHECKED none \| definition`) | - | 0 | - |
+| Units or dimensions | python, exponent bookkeeping (`symbolic`) | 60 s, 3k tokens | 0.3 min | ask the Reader for the units of each symbol |
+| Exact algebraic or trigonometric identity, or a derivation step | SymPy `simplify` / `expand` (`symbolic`; a nonzero residual under the stated assumptions is a FAILS) | 120 s, 5k tokens | 0.3 min | numerical row below |
+| `approx` or `sim` with a stated regime | SymPy `limit` / `series` (`asymptotic`) | 120 s, 15k tokens | 1 min | sample inside the regime (`numerical`) |
+| No closed form: integrals, special functions, simplify stalls | sampling, ≥ 200 points, fixed seed (`numerical`, or `counterexample` on a clear miss) | 300 s, 10k tokens | 2 min | UNCHECKED with what was tried |
+| Exact claim a person asked you to prove, or one of a paper's few **central** exact claims, statable over Nat or Int | **Lean** in addition to SymPy (`proof`, or `refutation` via the negation) | 3 compile attempts, 120 s each, 30k tokens | 5 min | keep the SymPy result; the Lean check stays UNCHECKED |
+
+**Estimate for the start message:** sum the typical times of the planned claims,
+add 2 min for each failing claim (correction check) you expect and 3 min overhead
+(intake, plan, bundle), and round up. Questions to the Reader add nothing: you do
+not wait. Reference point: a 40-claim paper with 33 SymPy, 4 asymptotic and
+1 numerical claim took about 11 minutes. Report the actual time in PLAN.md, so the
+typical times can be corrected.
 
 - **Cost first.** A SymPy check costs seconds and a few thousand tokens. A Lean
   proof costs a compile loop: each failed attempt means reading Lean's error and
