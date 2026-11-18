@@ -1,11 +1,13 @@
-# Example Hermes profile for the Sanity Verifier.
-# No tokens in this file. Replace every placeholder before starting the gateway.
+# Example Hermes settings for the Sanity Verifier.
+# No tokens in this file. These are the keys the Verifier needs; merge them into
+# the profile's config.yaml (or let scripts/setup_verifier_docker.sh set them).
 #
 # Loads:
-#   agents/verifier/AGENT.md  — setup_bot copies this to the profile SOUL.md
-#   skills/verify-math        — external_dirs + auto_load
+#   agents/verifier/AGENT.md  — installed as the profile's SOUL.md
+#   skills/verify-math        — external_dirs + auto_load (read from the code checkout)
 #
-# Copy target (placeholder): $HERMES_PROFILE_DIR, default ~/.hermes/profiles/sanity-verifier
+# Paths below are the Docker defaults (Hermes data volume at /opt/data).
+# On a non-Docker install, use your own paths. See docs/setup-verifier-docker.md.
 
 model:
   provider: "${MODEL_PROVIDER}"
@@ -13,21 +15,17 @@ model:
 
 terminal:
   backend: local
-  cwd: "${SANITY_REPO}"
+  # The Verifier's scratch folder: one run per <slug>/<attempt>/. Not the code repo.
+  cwd: "/opt/data/sanity-verifier/scratch"
   timeout: 180
 
 skills:
   external_dirs:
-    - "${SANITY_REPO}/skills"
+    - "/opt/data/sanity/skills"   # the sanity code checkout, read-only
   auto_load:
     - verify-math
 
-platforms:
-  telegram:
-    enabled: true
-    require_mention: true
-    extra:
-      allow_from:
-        - "${TEAM_TELEGRAM_USER_ID_1}"
-        - "${TEAM_TELEGRAM_USER_ID_2}"
-        - "${TEAM_TELEGRAM_USER_ID_3}"
+# Telegram: the token and allowed IDs live in the profile .env, not here
+# (TELEGRAM_BOT_TOKEN, TELEGRAM_ALLOWED_USERS). Allowed IDs must include the three
+# people, the Reader bot, the Writer bot and the group (docs/telegram.md).
+# In @BotFather: privacy off and Bot-to-Bot Communication Mode on.

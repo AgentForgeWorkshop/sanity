@@ -1,0 +1,43 @@
+{
+  "slug": "smoke-test",
+  "title": "Verifier smoke test (no paper)",
+  "source": "agents/verifier/smoke/equations.json",
+  "equations": [
+    {
+      "number": "1",
+      "line": 1,
+      "latex": "(a+b)^{2}=a^{2}+2ab+b^{2}",
+      "sympy": {"lhs": "(a + b)**2", "rhs": "a**2 + 2*a*b + b**2", "symbols": {"a": ["real"], "b": ["real"]}}
+    },
+    {
+      "number": "2",
+      "line": 2,
+      "latex": "\\sin^{2}x+\\cos^{2}x=2",
+      "sympy": {"lhs": "sin(x)**2 + cos(x)**2", "rhs": "2", "symbols": {"x": ["real"]}}
+    },
+    {
+      "number": "3",
+      "line": 3,
+      "latex": "\\sqrt{1+\\epsilon}\\simeq 1+\\epsilon/2",
+      "sympy": {
+        "lhs": "sqrt(1 + eps)",
+        "rhs": "1 + eps/2",
+        "relation": "approx",
+        "symbols": {"eps": ["positive"]},
+        "regime": {"limit": {"symbol": "eps", "to": "0", "direction": "+"}, "order": "eps**2", "note": "for small epsilon"}
+      }
+    },
+    {
+      "number": "4",
+      "line": 4,
+      "latex": "\\frac{x}{1+x}\\sim x",
+      "sympy": {
+        "lhs": "x/(1 + x)",
+        "rhs": "x",
+        "relation": "sim",
+        "symbols": {"x": ["positive"]},
+        "regime": {"note": "the source states no regime"}
+      }
+    }
+  ]
+}
