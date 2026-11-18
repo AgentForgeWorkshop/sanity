@@ -270,3 +270,22 @@ def test_scratch_attempt_outside_git_records_code_commit_and_inputs(tmp_path):
     results = (attempt / "verify" / "RESULTS.md").read_text(encoding="utf-8")
     assert "Paper: toy, attempt 2." in results
     assert "2 version(s) received, 1 question(s) asked" in results
+
+
+def test_code_commit_trusts_a_checkout_owned_by_another_user(monkeypatch):
+    """In Docker the clone is root-owned; git must not refuse it as dubious ownership."""
+    import subprocess
+    import verify_run
+
+    calls = []
+
+    class Done:
+        stdout = ""
+
+    def fake_run(args, **kwargs):
+        calls.append(args)
+        return Done()
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    verify_run.code_commit()
+    assert calls and all(args[:3] == ["git", "-c", "safe.directory=*"] for args in calls)

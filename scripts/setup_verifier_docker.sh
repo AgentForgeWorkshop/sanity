@@ -17,6 +17,11 @@
 #   SANITY_URL         repo to clone                (default: https://github.com/IlkhamFY/sanity)
 #   SANITY_REF         branch or tag to check out   (default: main)
 #   DATA               Hermes data dir in container (default: /opt/data)
+#   HERMES_USER        user Hermes runs as          (default: owner of $DATA, e.g. hermes)
+#
+# Ownership: the code clone and the Python env stay root-owned, so the bot can read
+# but not change them. The scratch area belongs to HERMES_USER, the only place the
+# bot writes. selftest runs as HERMES_USER to catch permission problems.
 #
 # configure backs up SOUL.md, config.yaml and .env first (*.bak-<time>), and
 # never prints secrets. Telegram settings (token, allowed IDs, bot-to-bot mode)
@@ -36,10 +41,12 @@ PY="$VENV/bin/python"
 say() { printf '\n== %s\n' "$*"; }
 die() { printf 'error: %s\n' "$*" >&2; exit 1; }
 
-# Run a shell script inside the container. Values are passed as environment
-# variables, never pasted into the script text.
-in_container() {
-  docker exec -i \
+# Run a shell script inside the container (as root, or as $1 with in_container_as).
+# Values are passed as environment variables, never pasted into the script text.
+in_container() { in_container_as root; }
+
+in_container_as() {
+  docker exec -i -u "$1" -e RUN_AS="$RUN_AS" \
     -e REPO="$REPO" -e VENV="$VENV" -e HOME_DIR="$HOME_DIR" -e SCRATCH="$SCRATCH" \
     -e PY="$PY" -e DATA="$DATA" -e SANITY_URL="$SANITY_URL" -e SANITY_REF="$SANITY_REF" \
     "$CONTAINER" sh -s
@@ -52,6 +59,7 @@ check_container() {
   local state
   state="$(docker inspect -f '{{.State.Running}}' "$CONTAINER" 2>/dev/null || true)"
   [ "$state" = "true" ] || die "container '$CONTAINER' is not running (docker start $CONTAINER)"
+  RUN_AS="${HERMES_USER:-$(docker exec "$CONTAINER" stat -c %U "$DATA" 2>/dev/null || echo root)}"
 }
 
 install() {
@@ -75,13 +83,14 @@ cat > "$SCRATCH/sanity.env" <<ENV
 export SANITY_REPO="$REPO"
 export SANITY_PYTHON="$PY"
 ENV
-echo "scratch: $SCRATCH (sanity.env written)"
+chown -R "$RUN_AS:" "$HOME_DIR"
+echo "scratch: $SCRATCH (sanity.env written, owned by $RUN_AS)"
 EOF
 }
 
 selftest() {
-  say "selftest: example run through intake -> verify_run -> bundle (inside the container)"
-  in_container <<'EOF'
+  say "selftest: example run through intake -> verify_run -> bundle (inside the container, as $RUN_AS)"
+  in_container_as "$RUN_AS" <<'EOF'
 set -eu
 T="$REPO/agents/verifier"
 TMP="$(mktemp -d)"
@@ -182,7 +191,8 @@ status() {
 set -eu
 if [ -d "$REPO/.git" ]; then echo "code: $(git -C "$REPO" rev-parse --short HEAD) $(git -C "$REPO" log -1 --format=%s | cut -c1-60)"; else echo "code: not installed"; fi
 if [ -x "$PY" ]; then "$PY" -c 'import sympy; print("python env: sympy", sympy.__version__)'; else echo "python env: not installed"; fi
-[ -d "$SCRATCH" ] && echo "scratch: $SCRATCH ($(ls "$SCRATCH" | grep -v sanity.env | wc -l | tr -d ' ') run folder(s))" || echo "scratch: missing"
+[ -d "$SCRATCH" ] && echo "scratch: $SCRATCH ($(ls "$SCRATCH" | grep -v sanity.env | wc -l | tr -d ' ') run folder(s), owner $(stat -c %U "$SCRATCH"))" || echo "scratch: missing"
+if [ -d "$SCRATCH" ] && su -s /bin/sh "$RUN_AS" -c "test -w '$SCRATCH'" 2>/dev/null; then echo "scratch: writable by $RUN_AS"; else echo "scratch: NOT writable by $RUN_AS (run install again)"; fi
 if cmp -s "$DATA/SOUL.md" "$REPO/agents/verifier/AGENT.md" 2>/dev/null; then echo "persona: Verifier (matches AGENT.md)"; else echo "persona: NOT the Verifier's AGENT.md"; fi
 grep -q '^SANITY_REPO=' "$DATA/.env" 2>/dev/null && echo ".env: SANITY_REPO set" || echo ".env: SANITY_REPO missing"
 EOF

@@ -18,6 +18,13 @@ The host's Python is never used.
 All of it is on the `hermes-data` volume, so it survives container restarts and
 image updates.
 
+**Ownership.** Hermes runs as `hermes` (uid 10000), while `docker exec` runs as
+root. The script keeps the clone and the Python environment root-owned, so the
+bot can read but not change them, and gives the scratch area to `hermes`, the
+only place the bot writes. `selftest` runs as `hermes`, and `status` reports
+whether the scratch folder is writable. If the bot reports "Permission denied"
+in its scratch folder, run `install` again.
+
 ## Before you start (Telegram, by hand)
 
 Follow [docs/telegram.md](telegram.md). For the Verifier specifically:
