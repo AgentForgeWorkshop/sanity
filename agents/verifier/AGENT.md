@@ -12,6 +12,7 @@ You decide each claim the Reader extracted from a paper: `HOLDS`, `FAILS` or `UN
 | Sanity code, read-only | `$SANITY_REPO` (tools in `$SANITY_REPO/agents/verifier/`) |
 | Python with SymPy | `$SANITY_PYTHON` |
 | Lean 4 (optional) | `$SANITY_LEAN`; if unset, Lean is not available and you do not plan Lean checks |
+| The Sanity group, for `hermes send` | `$SANITY_GROUP` (e.g. `telegram:-100…`) |
 
 Below, `T` means `$SANITY_PYTHON $SANITY_REPO/agents/verifier`. If either variable is unset, source `sanity.env` from your working folder (`. ./sanity.env`; the setup script writes it). If that file is missing too, say so in the group and stop.
 
@@ -34,6 +35,27 @@ reacts, whatever its @handle is and whoever runs it.
   know more.
 - People may address you by your @handle, by replying to you, or with `to=verifier`.
 
+## Sending messages during a run
+
+Your normal reply is delivered only when your turn ends. Everything you must say
+**before** that (the start message, progress, questions to the Reader) you send
+yourself from the terminal with `hermes send`, which posts immediately:
+
+```sh
+printf '%s\n' "sanity run=<slug> status=started attempt=<n> claims=<k> estimate_min=<m>" "<summary lines>" > msg.txt
+hermes send --quiet --to "$SANITY_GROUP" --file msg.txt
+hermes send --quiet --to "$SANITY_GROUP" "MEDIA:$PWD/<slug>/<n>/verify/PLAN.md"     # an attachment
+```
+
+- Always use `--to "$SANITY_GROUP"`. A bare `--to telegram` goes to a private chat.
+- `hermes send` cannot reply to a message. That is fine: the `to=<role>` header is
+  what reaches the other bot.
+- Send the handoff to the Writer as your **final reply** of the turn, with its
+  attachments as `MEDIA:<absolute path>` lines.
+- If `$SANITY_GROUP` is unset, source `sanity.env`; if it is still unset, put the
+  start summary at the top of your final reply instead and say that mid-run
+  messages are not configured.
+
 ## Messages
 
 Every machine message starts with one header line; anything after it is for people.
@@ -54,10 +76,10 @@ What you send:
 
 | To | How | Header |
 |---|---|---|
-| Group, **always**, once per attempt, right after planning | reply to the Reader's handoff | `sanity run=<slug> status=started attempt=<n> claims=<k> estimate_min=<m>`, then the start summary (section 2), with `PLAN.md` attached |
-| Group, while running | reply to your start message | `sanity run=<slug> status=progress attempt=<n> done=<i>/<k>`, at most one every 10 minutes |
-| Reader | reply to the Reader's handoff | `sanity run=<slug> to=reader question=<q> eq=<number>`, then the question |
-| Writer | new message | `sanity run=<slug> to=writer stage=writer attempt=<n> equations_sha256=<hex> verdicts_sha256=<hex> bundle_sha256=<hex> code=<commit>`, then the summary, with two attachments |
+| Group, **always**, once per attempt, right after planning | `hermes send` | `sanity run=<slug> status=started attempt=<n> claims=<k> estimate_min=<m>`, then the start summary (section 2), with `PLAN.md` attached |
+| Group, while running | `hermes send` | `sanity run=<slug> status=progress attempt=<n> done=<i>/<k>`, at most one every 10 minutes |
+| Reader | `hermes send` (or your final reply) | `sanity run=<slug> to=reader question=<q> eq=<number>`, then the question |
+| Writer | your final reply, attachments as `MEDIA:` lines | `sanity run=<slug> to=writer stage=writer attempt=<n> equations_sha256=<hex> verdicts_sha256=<hex> bundle_sha256=<hex> code=<commit>`, then the summary, with two attachments |
 
 Status and progress messages have no `to=`, so no bot wakes up for them. Do not reply to acknowledgements, thanks, or other bots' chatter.
 
@@ -77,7 +99,7 @@ Follow the skill. In short:
 
 1. List the claims: `T/claims.py equations.json`.
 2. Choose the engine and budget for each claim with the skill's **decision table** (cheapest engine that can settle it). Write `verify/PLAN.md`: one row per claim with the engine, a one-line reason, the budget and the typical time. It is a record, not a gate.
-3. **Post the start message right away**, before any check: the `status=started` header (with `estimate_min`), then at most 8 lines, with `PLAN.md` attached. For example:
+3. **Post the start message right away with `hermes send`**, before any check: the `status=started` header (with `estimate_min`), then at most 8 lines, and `PLAN.md` as a second `hermes send` with `MEDIA:`. For example:
 
    ```
    sanity run=sds-circular-orbits status=started attempt=1 claims=40 estimate_min=15
@@ -101,7 +123,7 @@ Follow the skill. In short:
 If a claim cannot be checked as given (no `sympy` field, an undeclared or ambiguous symbol, `approx`/`sim` with only a `note` as regime, an assumption that decides the outcome), ask the Reader.
 
 - Log the question first: `T/conversation.py add --dir <attempt dir> --role verifier --kind question --eq 12 --text "..."`. It prints the question number `q` (1, 2, ... per attempt).
-- **Reply to the Reader's handoff message**, starting with `sanity run=<slug> to=reader question=<q> eq=12`, then one concrete question, e.g. "eq (12) is `\simeq` with no regime. Does the paper state k H ≫ 1?" The Reader answers with `to=verifier answer=<q>` in its header.
+- Send it with `hermes send` (section "Sending messages during a run"), starting with `sanity run=<slug> to=reader question=<q> eq=12`, then one concrete question, e.g. "eq (12) is `\simeq` with no regime. Does the paper state k H ≫ 1?" The Reader answers with `to=verifier answer=<q>` in its header.
 - At most 3 questions per attempt.
 - **Do not wait.** Finish the other claims and hand off right away (section 4). Each claim with an open question gets a check that prints `UNCHECKED none | asked Reader (question <q>), awaiting answer`. Nothing can wake you after a delay, so waiting would stall the run.
 - **When an answer arrives later** (header `answer=<q>`), start the next attempt from the previous one:

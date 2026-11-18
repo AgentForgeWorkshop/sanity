@@ -52,6 +52,20 @@ Hermes wake word, so a matching message counts as addressed to it:
 Restart the gateway after changing `.env`. Status and progress lines carry no `to=`,
 so no bot wakes for them. Replies still reach their author, as before.
 
+## Messages during a run
+
+A Hermes bot's reply is delivered only when its turn ends, and this Hermes version
+has no messaging tool for Telegram. So the Verifier posts its start message,
+progress lines and questions from its terminal with `hermes send --to
+"$SANITY_GROUP"` (attachments as `MEDIA:<path>`). `configure` finds the group's
+target in `hermes send --list telegram` (set `SANITY_GROUP=telegram:<group id>` if
+the bot is in several groups). The Telegram home channel is not used: it may be a
+private chat.
+
+After changing the persona or skill, `configure` runs `hermes sessions
+refresh-prompts`: Hermes freezes the system prompt per chat session, so without it
+running sessions keep the old instructions.
+
 ## Two Hermes settings every Sanity bot needs
 
 Hermes' defaults break the handoff, so all three bots (Reader, Verifier, Writer)

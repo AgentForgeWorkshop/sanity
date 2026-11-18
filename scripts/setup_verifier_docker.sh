@@ -19,6 +19,8 @@
 #   SANITY_REF         branch or tag to check out   (default: main)
 #   DATA               Hermes data dir in container (default: /opt/data)
 #   HERMES_USER        user Hermes runs as          (default: owner of $DATA, e.g. hermes)
+#   SANITY_GROUP       hermes send target for the Sanity group, e.g. telegram:-100123
+#                      (default: the only Telegram group in `hermes send --list telegram`)
 #
 # Ownership: the code clone and the Python env stay root-owned, so the bot can read
 # but not change them. The scratch area belongs to HERMES_USER, the only place the
@@ -51,6 +53,7 @@ in_container_as() {
   docker exec -i -u "$1" -e RUN_AS="$RUN_AS" \
     -e REPO="$REPO" -e VENV="$VENV" -e HOME_DIR="$HOME_DIR" -e SCRATCH="$SCRATCH" \
     -e PY="$PY" -e DATA="$DATA" -e SANITY_URL="$SANITY_URL" -e SANITY_REF="$SANITY_REF" -e LEAN_DIR="$LEAN_DIR" \
+    -e SANITY_GROUP="${SANITY_GROUP:-}" \
     "$CONTAINER" sh -s
 }
 
@@ -192,6 +195,23 @@ printf 'SANITY_REPO=%s\nSANITY_PYTHON=%s\nTELEGRAM_REQUIRE_MENTION=true\n' "$REP
 # Role wake word: a group message whose header says to=verifier counts as addressed to this
 # bot, whatever its @handle is. Bots address each other by role, not by handle.
 printf 'TELEGRAM_MENTION_PATTERNS=%s\n' 'sanity run=[^ ]+ .*to=verifier' >> "$tmp"
+# Where the bot posts start/progress/questions mid-run (hermes send). The gateway's own reply
+# goes out only at the end of a turn, and the Telegram home channel may be a private chat.
+group="${SANITY_GROUP:-}"
+if [ -z "$group" ]; then
+  ids="$(su -s /bin/sh "$RUN_AS" -c 'hermes send --list telegram' 2>/dev/null | sed -n 's/.*\[\(-[0-9][0-9]*\)\].*/\1/p' | sort -u)"
+  [ "$(printf '%s\n' "$ids" | grep -c .)" = 1 ] && group="telegram:$ids"
+fi
+grep -v '^SANITY_GROUP=' "$tmp" > "$tmp.2" || true; mv "$tmp.2" "$tmp"
+if [ -n "$group" ]; then
+  printf 'SANITY_GROUP=%s\n' "$group" >> "$tmp"
+  grep -v '^export SANITY_GROUP=' "$SCRATCH/sanity.env" > "$SCRATCH/sanity.env.new" || true
+  echo "export SANITY_GROUP=\"$group\"" >> "$SCRATCH/sanity.env.new"
+  cat "$SCRATCH/sanity.env.new" > "$SCRATCH/sanity.env"; rm -f "$SCRATCH/sanity.env.new"
+  echo "group: SANITY_GROUP set (hermes send target for start/progress/questions)"
+else
+  echo "group: NOT set. Several or no Telegram groups found; re-run with SANITY_GROUP=telegram:<group id>" >&2
+fi
 cat "$tmp" > "$DATA/.env"
 rm -f "$tmp"
 echo ".env: SANITY_REPO, SANITY_PYTHON set; TELEGRAM_REQUIRE_MENTION=true; wake word 'to=verifier' (TELEGRAM_MENTION_PATTERNS)"
@@ -218,6 +238,9 @@ EOF
   case "$expect" in true|True) ;; *) die "bot_loop_guard.bot_replies_expect_reply was not set; edit config.yaml by hand" ;; esac
   [ "$hops" = "8" ] || die "bot_loop_guard.max_hops was not set (got '$hops'); edit config.yaml by hand"
   allowed_report
+  # Hermes freezes the system prompt per chat session; without this, running sessions keep
+  # the old persona and skill. History is kept; each session rebuilds once on its next turn.
+  docker exec -u "$RUN_AS" "$CONTAINER" hermes sessions refresh-prompts 2>&1 | grep -v -i pnpm | tail -1 || true
   say "restarting $CONTAINER so the gateway loads the new persona and config"
   docker restart "$CONTAINER" >/dev/null
   sleep 5
@@ -256,6 +279,7 @@ EOF
   in_container <<'EOF2'
 grep -q '^TELEGRAM_REQUIRE_MENTION=true' "$DATA/.env" 2>/dev/null && echo ".env: TELEGRAM_REQUIRE_MENTION=true" || echo ".env: TELEGRAM_REQUIRE_MENTION not true (the bot answers every group message)"
 grep -q '^TELEGRAM_MENTION_PATTERNS=.*to=verifier' "$DATA/.env" 2>/dev/null && echo ".env: wake word to=verifier set" || echo ".env: wake word to=verifier MISSING (run configure)"
+grep -q '^SANITY_GROUP=telegram:-' "$DATA/.env" 2>/dev/null && echo ".env: SANITY_GROUP set (mid-run messages)" || echo ".env: SANITY_GROUP MISSING (no start/progress messages; run configure)"
 EOF2
   allowed_report
 }
