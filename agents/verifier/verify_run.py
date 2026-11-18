@@ -118,17 +118,23 @@ def script_role(constants: dict) -> tuple[str, str | None]:
 CODE_DIR = Path(__file__).resolve().parent
 
 
+# The checkout may belong to another user than the one running the checks (in
+# Docker the clone is root-owned and read-only for the bot). git then refuses it as
+# "dubious ownership"; these read-only calls trust it explicitly.
+GIT = ["git", "-c", "safe.directory=*"]
+
+
 def code_commit(root: Path = CODE_DIR) -> str:
     """Commit of the sanity checkout this runner belongs to."""
     try:
         commit = subprocess.run(
-            ["git", "-C", str(root), "rev-parse", "--short", "HEAD"],
+            [*GIT, "-C", str(root), "rev-parse", "--short", "HEAD"],
             capture_output=True,
             text=True,
             check=False,
         ).stdout.strip() or "?"
         dirty = subprocess.run(
-            ["git", "-C", str(root), "status", "--porcelain", "--untracked-files=no"],
+            [*GIT, "-C", str(root), "status", "--porcelain", "--untracked-files=no"],
             capture_output=True,
             text=True,
             check=False,
