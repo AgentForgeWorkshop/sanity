@@ -6,7 +6,8 @@
 #
 #   bash scripts/setup_verifier_docker.sh install     clone sanity, Python env with SymPy, scratch folder
 #   bash scripts/setup_verifier_docker.sh selftest    run the example through intake, verify_run and bundle
-#   bash scripts/setup_verifier_docker.sh configure   persona, skill, working folder, env vars; restarts the container
+#   bash scripts/setup_verifier_docker.sh configure   persona, skill, working folder, env vars, mention-only,
+#                                                     bot loop guard; restarts the container
 #   bash scripts/setup_verifier_docker.sh status      show what is installed and configured
 #   bash scripts/setup_verifier_docker.sh all         install + selftest + configure
 #   bash scripts/setup_verifier_docker.sh update      pull the code again (re-run selftest afterwards)
@@ -129,15 +130,19 @@ cp "$REPO/agents/verifier/AGENT.md" "$DATA/SOUL.md"
 echo "persona: SOUL.md <- agents/verifier/AGENT.md"
 touch "$DATA/.env"
 tmp="$(mktemp)"
-grep -v -E '^(SANITY_REPO|SANITY_PYTHON)=' "$DATA/.env" > "$tmp" || true
-printf 'SANITY_REPO=%s\nSANITY_PYTHON=%s\n' "$REPO" "$PY" >> "$tmp"
+grep -v -E '^(SANITY_REPO|SANITY_PYTHON|TELEGRAM_REQUIRE_MENTION)=' "$DATA/.env" > "$tmp" || true
+printf 'SANITY_REPO=%s\nSANITY_PYTHON=%s\nTELEGRAM_REQUIRE_MENTION=true\n' "$REPO" "$PY" >> "$tmp"
 cat "$tmp" > "$DATA/.env"
 rm -f "$tmp"
-echo ".env: SANITY_REPO and SANITY_PYTHON set"
+echo ".env: SANITY_REPO, SANITY_PYTHON set; TELEGRAM_REQUIRE_MENTION=true (react only to @mentions and replies)"
 EOF
   hermes_cmd config set terminal.cwd "$SCRATCH" >/dev/null
   hermes_cmd config set skills.external_dirs "[\"$REPO/skills\"]" >/dev/null
   hermes_cmd config set skills.auto_load '["verify-math"]' >/dev/null
+  # Hermes' bot loop guard: by default a bot's reply to our message is not answered,
+  # which would drop the Reader's answers to the Verifier's questions.
+  hermes_cmd config set gateway.bot_loop_guard.bot_replies_expect_reply true >/dev/null
+  hermes_cmd config set gateway.bot_loop_guard.max_hops 8 >/dev/null
   local cwd dirs load
   cwd="$(hermes_cmd config get terminal.cwd | tail -1)"
   dirs="$(hermes_cmd config get skills.external_dirs | tr -d '\n ')"
@@ -146,6 +151,12 @@ EOF
   [ "$cwd" = "$SCRATCH" ] || die "terminal.cwd was not set (got '$cwd'); edit config.yaml by hand"
   case "$dirs" in *"$REPO/skills"*) ;; *) die "skills.external_dirs was not set; edit config.yaml by hand" ;; esac
   case "$load" in *verify-math*) ;; *) die "skills.auto_load was not set; edit config.yaml by hand" ;; esac
+  local expect hops
+  expect="$(hermes_cmd config get gateway.bot_loop_guard.bot_replies_expect_reply | tail -1 | tr -d "' \"")"
+  hops="$(hermes_cmd config get gateway.bot_loop_guard.max_hops | tail -1 | tr -d "' \"")"
+  echo "config: gateway.bot_loop_guard.bot_replies_expect_reply=$expect  max_hops=$hops"
+  case "$expect" in true|True) ;; *) die "bot_loop_guard.bot_replies_expect_reply was not set; edit config.yaml by hand" ;; esac
+  [ "$hops" = "8" ] || die "bot_loop_guard.max_hops was not set (got '$hops'); edit config.yaml by hand"
   allowed_report
   say "restarting $CONTAINER so the gateway loads the new persona and config"
   docker restart "$CONTAINER" >/dev/null
@@ -178,6 +189,10 @@ EOF
   echo "config: terminal.cwd=$(hermes_cmd config get terminal.cwd | tail -1)"
   echo "config: skills.external_dirs=$(hermes_cmd config get skills.external_dirs | tr -d '\n ')"
   echo "config: skills.auto_load=$(hermes_cmd config get skills.auto_load | tr -d '\n ')"
+  echo "config: gateway.bot_loop_guard.bot_replies_expect_reply=$(hermes_cmd config get gateway.bot_loop_guard.bot_replies_expect_reply | tail -1)  max_hops=$(hermes_cmd config get gateway.bot_loop_guard.max_hops | tail -1)"
+  in_container <<'EOF2'
+grep -q '^TELEGRAM_REQUIRE_MENTION=true' "$DATA/.env" 2>/dev/null && echo ".env: TELEGRAM_REQUIRE_MENTION=true" || echo ".env: TELEGRAM_REQUIRE_MENTION not true (the bot answers every group message)"
+EOF2
   allowed_report
 }
 
@@ -187,7 +202,7 @@ main() {
     install|selftest|configure|status) check_container; "$cmd" ;;
     update) check_container; install ;;
     all) check_container; install; selftest; configure ;;
-    *) sed -n '2,24p' "$0"; exit 2 ;;
+    *) awk 'NR == 1 { next } /^#/ { sub(/^# ?/, ""); print; next } { exit }' "$0"; exit 2 ;;
   esac
 }
 

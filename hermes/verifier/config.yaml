@@ -25,7 +25,13 @@ skills:
   auto_load:
     - verify-math
 
+gateway:
+  bot_loop_guard:
+    bot_replies_expect_reply: true   # answer the Reader's replies to our questions
+    max_hops: 8                      # handoff + up to 3 questions with answers
+
 # Telegram: the token and allowed IDs live in the profile .env, not here
 # (TELEGRAM_BOT_TOKEN, TELEGRAM_ALLOWED_USERS). Allowed IDs must include the three
 # people, the Reader bot, the Writer bot and the group (docs/telegram.md).
+# Set TELEGRAM_REQUIRE_MENTION=true there too. Do not set TELEGRAM_ALLOW_BOTS.
 # In @BotFather: privacy off and Bot-to-Bot Communication Mode on.
