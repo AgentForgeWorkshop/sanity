@@ -15,7 +15,15 @@ Who holds which bot is in [docs/setup.md](setup.md). That assignment is editable
 
 Each agent is its own bot. Create three bots with [@BotFather](https://t.me/BotFather). One token per bot. Do not reuse a token across agents.
 
-## Privacy mode off
+## Step-by-step guide
+### Set up a Telegram account for each bot
+1. Go to @BotFather and type /newbot. Follow the procedure and give each a telegram an account name.
+2. Record the API Token for each bot.
+3. Go to @id_bot and record your own Telegram ID, and IDs of each bot account
+4. Go to @BotFather and type /mybot. Set each bot account's GroupMode to On and GroupPrivacyMode to off.
+5. Create a group for yourself and all the bots. Find the ID of the group from @id_bot.
+
+#### Note on Privacy mode 
 
 In BotFather, disable privacy mode for each bot: `/setprivacy`, choose the bot, **Disable**.
 
@@ -25,30 +33,10 @@ With privacy mode on, a bot in a group only sees commands, replies to itself, an
 
 If a bot still shows "has no access to messages" after the change, privacy is still on. Disable it again and re-add the bot. [docs/setup.md](setup.md) calls this out for the Writer bot, which has been seen in that state.
 
-## Bots cannot see other bots
+### Setup for the bots
 
-In a group, the Bot API does not deliver one bot's messages to another bot. The Reader's post never arrives at the Verifier. The Verifier's note never arrives at the Writer. The group transcript is for the people.
-
-## How a turn works
-
-Humans @mention the bot that should act. That is the trigger.
-
-The bot pulls the repo, acts only when `runs/<slug>/status.json` has its stage, commits, pushes, and posts one line:
-
-```
-@<next-bot> runs/<slug> ready
-```
-
-The Writer's last line is `runs/<slug> ready`. The short human summary is the file `runs/<slug>/telegram.md`, not a second chat thread between bots.
-
-No agent should scrape the group for another agent's text.
-
-## Who may talk to a bot
-
-Lock each bot to the team's Telegram user IDs. Put the three numeric IDs in the profile environment as `TELEGRAM_ALLOWED_USERS`, and in `platforms.telegram.extra.allow_from` in the example config. Do not use `*` .
-
-Group messages should require a mention (`telegram.require_mention: true`), so ordinary chatter does not start a run.
-
-## Tokens
-
-Keep the three BotFather tokens out of the repository. Hermes reads `TELEGRAM_BOT_TOKEN` from the profile environment, not from git. While you are setting a machine up, a separate name per bot is enough: `READER_TELEGRAM_TOKEN`, `VERIFIER_TELEGRAM_TOKEN`, `WRITER_TELEGRAM_TOKEN`. Copy the value into `TELEGRAM_BOT_TOKEN` for that profile. This skeleton does not call Telegram.
+Go to each bot's Telegram setting (usually through `hermes (-p bot_profile) gateway setup`. Do the following:
+1. When prompted to do it Automatically or Manually, choose Manual
+2. Paste the Telegram API Token for bot. DO NOT SHARE API Token between bots. Each API Token can only be tied to one bot.
+3. In Allow User IDs (which sets `TELEGRAM_ALLOWED_USERS` in `.env`), put all IDs recorded for each bot, put and your own Telegram ID (comma-separated list), and the group chat ID.
+  - Alternative, you can put these IDS directly in `TELEGRAM_ALLOWED_USERS` in `.env` of your bot. Remember to restart the gateway to make this valid.
