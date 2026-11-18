@@ -238,7 +238,8 @@ h2, h3 { font-weight: 500; letter-spacing: -0.03em; }
 
 .eq.is-focus { opacity: 1; }
 
-.math { min-width: 0; max-width: 100%; overflow-x: auto; }
+.math { min-width: 0; max-width: 100%; overflow-x: auto; overflow-y: hidden; padding: .15em 0; scrollbar-width: none; }
+.math::-webkit-scrollbar { display: none; }
 
 .katex, .katex-display { color: inherit; }
 
