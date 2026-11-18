@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128.00 128.00" role="img" aria-label="Sanity mark">
+<title>Sanity mark</title>
+<g>
+  <g fill="none" stroke="#0C2340" stroke-width="1.2" stroke-linecap="square">
+    <path d="M12 32 V12 H32"/>
+    <path d="M96 12 H116 V32"/>
+    <path d="M12 96 V116 H32"/>
+    <path d="M96 116 H116 V96"/>
+  </g>
+  <rect x="22" y="22" width="84" height="84" fill="none" stroke="#0C2340" stroke-opacity="0.38" stroke-width="0.75"/>
+  <g fill="none" stroke="#0C2340" stroke-width="6.25" stroke-linecap="square">
+    <line x1="40" y1="54" x2="88" y2="54"/>
+    <line x1="40" y1="74" x2="88" y2="74"/>
+  </g>
+  <g fill="none" stroke="#1C4E72" stroke-width="1.15" stroke-linecap="square">
+    <path d="M34 46 L40 54"/>
+    <path d="M88 54 L94 46"/>
+    <path d="M34 82 L40 74"/>
+    <path d="M88 74 L94 82"/>
+    <line x1="30" y1="44" x2="30" y2="84"/>
+    <line x1="98" y1="44" x2="98" y2="84"/>
+  </g>
+  <clipPath id="ml-ribs"><rect x="22" y="22" width="84" height="84"/></clipPath>
+<g clip-path="url(#ml-ribs)"><rect x="22.00" y="22" width="1.15" height="84" fill="#0C2340" opacity="0.16"/>
+<rect x="23.40" y="22" width="4.6" height="84" fill="#ffffff" opacity="0.22"/>
+<rect x="29.40" y="22" width="1.15" height="84" fill="#0C2340" opacity="0.16"/>
+<rect x="30.80" y="22" width="4.6" height="84" fill="#ffffff" opacity="0.22"/>
+<rect x="36.80" y="22" width="1.15" height="84" fill="#0C2340" opacity="0.16"/>
+<rect x="38.20" y="22" width="4.6" height="84" fill="#ffffff" opacity="0.22"/>
+<rect x="44.20" y="22" width="1.15" height="84" fill="#0C2340" opacity="0.16"/>
+<rect x="45.60" y="22" width="4.6" height="84" fill="#ffffff" opacity="0.22"/>
+<rect x="51.60" y="22" width="1.15" height="84" fill="#0C2340" opacity="0.16"/>
+<rect x="53.00" y="22" width="4.6" height="84" fill="#ffffff" opacity="0.22"/>
+<rect x="59.00" y="22" width="1.15" height="84" fill="#0C2340" opacity="0.16"/>
+<rect x="60.40" y="22" width="4.6" height="84" fill="#ffffff" opacity="0.22"/>
+<rect x="66.40" y="22" width="1.15" height="84" fill="#0C2340" opacity="0.16"/>
+<rect x="67.80" y="22" width="4.6" height="84" fill="#ffffff" opacity="0.22"/>
+<rect x="73.80" y="22" width="1.15" height="84" fill="#0C2340" opacity="0.16"/>
+<rect x="75.20" y="22" width="4.6" height="84" fill="#ffffff" opacity="0.22"/>
+<rect x="81.20" y="22" width="1.15" height="84" fill="#0C2340" opacity="0.16"/>
+<rect x="82.60" y="22" width="4.6" height="84" fill="#ffffff" opacity="0.22"/>
+<rect x="88.60" y="22" width="1.15" height="84" fill="#0C2340" opacity="0.16"/>
+<rect x="90.00" y="22" width="4.6" height="84" fill="#ffffff" opacity="0.22"/>
+<rect x="96.00" y="22" width="1.15" height="84" fill="#0C2340" opacity="0.16"/>
+<rect x="97.40" y="22" width="4.6" height="84" fill="#ffffff" opacity="0.22"/>
+<rect x="103.40" y="22" width="1.15" height="84" fill="#0C2340" opacity="0.16"/>
+<rect x="104.80" y="22" width="4.6" height="84" fill="#ffffff" opacity="0.22"/></g>
+</g>
+</svg>
