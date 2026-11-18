@@ -80,11 +80,13 @@ echo "code: $(git -C "$REPO" rev-parse --short HEAD) ($SANITY_REF)"
 "$PY" -m pip install -q --disable-pip-version-check -r "$REPO/agents/verifier/requirements.txt"
 "$PY" -c 'import sympy, jsonschema; print("python:", __import__("platform").python_version(), "sympy:", sympy.__version__)'
 mkdir -p "$SCRATCH"
+lean_line="$(grep '^export SANITY_LEAN=' "$SCRATCH/sanity.env" 2>/dev/null || true)"
 cat > "$SCRATCH/sanity.env" <<ENV
 # Written by scripts/setup_verifier_docker.sh. Source this if SANITY_REPO is unset.
 export SANITY_REPO="$REPO"
 export SANITY_PYTHON="$PY"
 ENV
+[ -z "$lean_line" ] || echo "$lean_line" >> "$SCRATCH/sanity.env"
 chown -R "$RUN_AS:" "$HOME_DIR"
 echo "scratch: $SCRATCH (sanity.env written, owned by $RUN_AS)"
 EOF
@@ -185,11 +187,14 @@ cp "$REPO/agents/verifier/AGENT.md" "$DATA/SOUL.md"
 echo "persona: SOUL.md <- agents/verifier/AGENT.md"
 touch "$DATA/.env"
 tmp="$(mktemp)"
-grep -v -E '^(SANITY_REPO|SANITY_PYTHON|TELEGRAM_REQUIRE_MENTION)=' "$DATA/.env" > "$tmp" || true
+grep -v -E '^(SANITY_REPO|SANITY_PYTHON|TELEGRAM_REQUIRE_MENTION|TELEGRAM_MENTION_PATTERNS)=' "$DATA/.env" > "$tmp" || true
 printf 'SANITY_REPO=%s\nSANITY_PYTHON=%s\nTELEGRAM_REQUIRE_MENTION=true\n' "$REPO" "$PY" >> "$tmp"
+# Role wake word: a group message whose header says to=verifier counts as addressed to this
+# bot, whatever its @handle is. Bots address each other by role, not by handle.
+printf 'TELEGRAM_MENTION_PATTERNS=%s\n' 'sanity run=[^ ]+ .*to=verifier' >> "$tmp"
 cat "$tmp" > "$DATA/.env"
 rm -f "$tmp"
-echo ".env: SANITY_REPO, SANITY_PYTHON set; TELEGRAM_REQUIRE_MENTION=true (react only to @mentions and replies)"
+echo ".env: SANITY_REPO, SANITY_PYTHON set; TELEGRAM_REQUIRE_MENTION=true; wake word 'to=verifier' (TELEGRAM_MENTION_PATTERNS)"
 EOF
   hermes_cmd config set terminal.cwd "$SCRATCH" >/dev/null
   hermes_cmd config set skills.external_dirs "[\"$REPO/skills\"]" >/dev/null
@@ -250,6 +255,7 @@ EOF
   echo "config: gateway.bot_loop_guard.bot_replies_expect_reply=$(hermes_cmd config get gateway.bot_loop_guard.bot_replies_expect_reply | tail -1)  max_hops=$(hermes_cmd config get gateway.bot_loop_guard.max_hops | tail -1)"
   in_container <<'EOF2'
 grep -q '^TELEGRAM_REQUIRE_MENTION=true' "$DATA/.env" 2>/dev/null && echo ".env: TELEGRAM_REQUIRE_MENTION=true" || echo ".env: TELEGRAM_REQUIRE_MENTION not true (the bot answers every group message)"
+grep -q '^TELEGRAM_MENTION_PATTERNS=.*to=verifier' "$DATA/.env" 2>/dev/null && echo ".env: wake word to=verifier set" || echo ".env: wake word to=verifier MISSING (run configure)"
 EOF2
   allowed_report
 }

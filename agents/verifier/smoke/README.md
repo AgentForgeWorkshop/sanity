@@ -17,24 +17,26 @@ group, without a paper and without the Reader. You play the Reader.
 ## Send it
 
 1. Get the hash: `shasum -a 256 agents/verifier/smoke/equations.json`.
-2. In the group, send the file as a document, with this caption:
+2. In the group, send the file as a document, with this caption (no @ needed: the
+   Verifier wakes on `to=verifier`):
 
    ```
-   @koni_master_hermes_bot sanity run=smoke-test stage=verifier equations_sha256=<hash>
+   sanity run=smoke-test to=verifier stage=verifier equations_sha256=<hash>
    Please prove eq (5) in Lean.
    ```
 
 3. Expect, within a few minutes:
-   - optionally `sanity run=smoke-test status=started attempt=1 claims=5`
-   - a question as a reply: `sanity run=smoke-test question=1 eq=4 …`
+   - right away: `sanity run=smoke-test status=started attempt=1 claims=5 estimate_min=…`,
+     with the plan and `PLAN.md` attached
+   - a question as a reply: `sanity run=smoke-test to=reader question=1 eq=4 …`
    - **without waiting for your answer**, the handoff
-     `sanity run=smoke-test stage=writer attempt=1 …`, with `verdicts.json` and
+     `sanity run=smoke-test to=writer stage=writer attempt=1 …`, with `verdicts.json` and
      `smoke-test-1.tar.gz` attached: (1) HOLDS symbolic, (2) FAILS with a verified
      correction, (3) HOLDS asymptotic, (4) UNCHECKED (awaiting answer), (5) HOLDS proof
 4. Answer the question by replying to it:
 
    ```
-   @koni_master_hermes_bot sanity run=smoke-test answer=1
+   sanity run=smoke-test to=verifier answer=1
    As x → 0.
    ```
 

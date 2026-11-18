@@ -37,6 +37,21 @@ Follow [docs/telegram.md](telegram.md). For the Verifier specifically:
    bot IDs, the gateway blocks handoffs ("Blocked unauthorized user" in the log).
 3. The bot is in the group, and was re-added after changing the privacy setting.
 
+## Addressing by role (all three bots)
+
+Bots never need each other's @handles. Every machine message names its target role
+in the header, `sanity run=<slug> to=<role> …`, and each bot uses its own role as a
+Hermes wake word, so a matching message counts as addressed to it:
+
+| Bot | `.env` line |
+|---|---|
+| Reader | `TELEGRAM_MENTION_PATTERNS=sanity run=[^ ]+ .*to=reader` |
+| Verifier | `TELEGRAM_MENTION_PATTERNS=sanity run=[^ ]+ .*to=verifier` (set by `configure`) |
+| Writer | `TELEGRAM_MENTION_PATTERNS=sanity run=[^ ]+ .*to=writer` |
+
+Restart the gateway after changing `.env`. Status and progress lines carry no `to=`,
+so no bot wakes for them. Replies still reach their author, as before.
+
 ## Two Hermes settings every Sanity bot needs
 
 Hermes' defaults break the handoff, so all three bots (Reader, Verifier, Writer)
