@@ -1,6 +1,6 @@
 """Receive equations.json into the Verifier's scratch folder, and report run state.
 
-    python intake.py receive --slug SLUG --file PATH [--sha256 HEX] [--new-attempt] [--scratch DIR]
+    python intake.py receive --slug SLUG --file PATH [--sha256 HEX] [--new-attempt] [--carry] [--scratch DIR]
     python intake.py status  --slug SLUG [--scratch DIR]
 
 Layout under the scratch folder (default: the current directory, which is the
@@ -18,8 +18,11 @@ equations schema (parsing every sympy field safely, via claims.py), checks
 that its slug matches, and stores it as the next version of the current
 attempt. A file identical to the latest version is not stored twice.
 A new attempt n+1 starts when there is none yet, when ``--new-attempt`` is
-given (a human asked for a re-run), or when a different file arrives after the
-current attempt already has verdicts.
+given (a human asked for a re-run, or an answer arrived after the handoff), or
+when a different file arrives after the current attempt already has verdicts.
+With ``--carry``, a new attempt starts with the previous attempt's checks
+(``verify/checks/*.py`` and ``*.lean``), ``PLAN.md`` and ``conversation.jsonl``, so
+only what the answer changed has to be redone.
 
 Chat sessions do not share memory, so the state of a run lives here, on disk.
 ``status`` prints it as JSON: attempts, versions, whether verdicts and a
@@ -86,12 +89,20 @@ def versions(attempt_dir: Path) -> list[int]:
     return sorted(found)
 
 
-def start_attempt(scratch: Path, slug: str) -> Path:
-    """Create attempt n+1 with an empty verify/checks folder."""
+def start_attempt(scratch: Path, slug: str, carry: bool = False) -> Path:
+    """Create attempt n+1; with ``carry``, copy checks, plan and conversation from attempt n."""
     check_slug(slug)
-    number = (attempts(scratch, slug) or [0])[-1] + 1
+    previous = attempts(scratch, slug)
+    number = (previous or [0])[-1] + 1
     folder = Path(scratch) / slug / str(number)
     (folder / "verify" / "checks").mkdir(parents=True)
+    if carry and previous:
+        source = Path(scratch) / slug / str(previous[-1])
+        for script in sorted([*(source / "verify" / "checks").glob("*.py"), *(source / "verify" / "checks").glob("*.lean")]):
+            shutil.copyfile(script, folder / "verify" / "checks" / script.name)
+        for rel in ("verify/PLAN.md", "conversation.jsonl"):
+            if (source / rel).is_file():
+                shutil.copyfile(source / rel, folder / rel)
     return folder
 
 
@@ -107,7 +118,7 @@ def verified_with(scratch: Path, slug: str, sha256: str) -> int | None:
 
 
 def receive(scratch: Path, slug: str, source: Path, expected_sha256: str | None = None,
-            new_attempt: bool = False) -> Received:
+            new_attempt: bool = False, carry: bool = False) -> Received:
     """Validate ``source`` and store it as the next equations version."""
     check_slug(slug)
     source = Path(source)
@@ -129,14 +140,14 @@ def receive(scratch: Path, slug: str, source: Path, expected_sha256: str | None 
     current = Path(scratch) / slug / str(existing[-1]) if existing else None
     finished = current is not None and (current / "verify" / "verdicts.json").is_file()
     if new_attempt or current is None:
-        folder = start_attempt(scratch, slug)
+        folder = start_attempt(scratch, slug, carry)
     elif finished:
         # Same file as the finished attempt: report it, do not start over.
         if (current / "equations.json").is_file() and sha256_file(current / "equations.json") == sha:
             latest = versions(current)[-1]
             return Received(slug, int(current.name), latest, sha, len(claims),
                             str(current / f"equations.v{latest}.json"), True, already)
-        folder = start_attempt(scratch, slug)
+        folder = start_attempt(scratch, slug, carry)
     else:
         folder = current
     have = versions(folder)
@@ -185,6 +196,7 @@ def main(argv: list[str] | None = None) -> int:
     rec.add_argument("--file", required=True, type=Path)
     rec.add_argument("--sha256")
     rec.add_argument("--new-attempt", action="store_true")
+    rec.add_argument("--carry", action="store_true", help="new attempt starts with the previous checks, plan, conversation")
     rec.add_argument("--scratch", type=Path, default=Path("."))
     st = sub.add_parser("status", help="print the state of a run")
     st.add_argument("--slug", required=True)
@@ -192,7 +204,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         if args.command == "receive":
-            result = asdict(receive(args.scratch, args.slug, args.file, args.sha256, args.new_attempt))
+            result = asdict(receive(args.scratch, args.slug, args.file, args.sha256, args.new_attempt, args.carry))
         else:
             result = status(args.scratch, args.slug)
     except IntakeError as exc:

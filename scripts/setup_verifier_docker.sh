@@ -8,8 +8,9 @@
 #   bash scripts/setup_verifier_docker.sh selftest    run the example through intake, verify_run and bundle
 #   bash scripts/setup_verifier_docker.sh configure   persona, skill, working folder, env vars, mention-only,
 #                                                     bot loop guard; restarts the container
+#   bash scripts/setup_verifier_docker.sh lean        install Lean 4 (elan + the toolchain in agents/verifier/lean/lean-toolchain)
 #   bash scripts/setup_verifier_docker.sh status      show what is installed and configured
-#   bash scripts/setup_verifier_docker.sh all         install + selftest + configure
+#   bash scripts/setup_verifier_docker.sh all         install + lean + selftest + configure
 #   bash scripts/setup_verifier_docker.sh update      pull the code again (re-run selftest afterwards)
 #
 # Settings (environment variables on the host):
@@ -37,6 +38,7 @@ VENV="$DATA/sanity-venv"
 HOME_DIR="$DATA/sanity-verifier"
 SCRATCH="$HOME_DIR/scratch"
 PY="$VENV/bin/python"
+LEAN_DIR="$DATA/lean"
 
 say() { printf '\n== %s\n' "$*"; }
 die() { printf 'error: %s\n' "$*" >&2; exit 1; }
@@ -48,7 +50,7 @@ in_container() { in_container_as root; }
 in_container_as() {
   docker exec -i -u "$1" -e RUN_AS="$RUN_AS" \
     -e REPO="$REPO" -e VENV="$VENV" -e HOME_DIR="$HOME_DIR" -e SCRATCH="$SCRATCH" \
-    -e PY="$PY" -e DATA="$DATA" -e SANITY_URL="$SANITY_URL" -e SANITY_REF="$SANITY_REF" \
+    -e PY="$PY" -e DATA="$DATA" -e SANITY_URL="$SANITY_URL" -e SANITY_REF="$SANITY_REF" -e LEAN_DIR="$LEAN_DIR" \
     "$CONTAINER" sh -s
 }
 
@@ -88,6 +90,40 @@ echo "scratch: $SCRATCH (sanity.env written, owned by $RUN_AS)"
 EOF
 }
 
+lean() {
+  say "lean: elan + Lean toolchain at $LEAN_DIR (core library only, no Mathlib)"
+  in_container <<'EOF'
+set -eu
+[ -f "$REPO/agents/verifier/lean/lean-toolchain" ] || { echo "run install first" >&2; exit 1; }
+toolchain="$(tr -d '[:space:]' < "$REPO/agents/verifier/lean/lean-toolchain")"
+export ELAN_HOME="$LEAN_DIR/elan"
+if [ ! -x "$ELAN_HOME/bin/elan" ]; then
+  arch="$(uname -m)"
+  tmp="$(mktemp -d)"
+  curl -sSfL "https://github.com/leanprover/elan/releases/latest/download/elan-${arch}-unknown-linux-gnu.tar.gz" -o "$tmp/elan.tar.gz"
+  tar -xzf "$tmp/elan.tar.gz" -C "$tmp"
+  "$tmp/elan-init" -y --no-modify-path --default-toolchain none >/dev/null
+  rm -rf "$tmp"
+fi
+"$ELAN_HOME/bin/elan" toolchain install "$toolchain" >/dev/null 2>&1 || "$ELAN_HOME/bin/elan" toolchain install "$toolchain"
+version="${toolchain##*:}"
+bin=""
+for candidate in "$ELAN_HOME"/toolchains/*/bin/lean; do
+  case "$candidate" in *"$version"*) bin="$candidate" ;; esac
+done
+[ -x "$bin" ] || { echo "Lean $version not found under $ELAN_HOME/toolchains" >&2; exit 1; }
+echo "lean: $("$bin" --version | head -1)"
+grep -v '^export SANITY_LEAN=' "$SCRATCH/sanity.env" > "$SCRATCH/sanity.env.new" || true
+echo "export SANITY_LEAN=\"$bin\"" >> "$SCRATCH/sanity.env.new"
+cat "$SCRATCH/sanity.env.new" > "$SCRATCH/sanity.env"; rm -f "$SCRATCH/sanity.env.new"
+tmp="$(mktemp)"
+grep -v '^SANITY_LEAN=' "$DATA/.env" > "$tmp" || true
+echo "SANITY_LEAN=$bin" >> "$tmp"
+cat "$tmp" > "$DATA/.env"; rm -f "$tmp"
+echo "lean: SANITY_LEAN set in .env and sanity.env (restart the container, or run configure, to load it)"
+EOF
+}
+
 selftest() {
   say "selftest: example run through intake -> verify_run -> bundle (inside the container, as $RUN_AS)"
   in_container_as "$RUN_AS" <<'EOF'
@@ -121,6 +157,16 @@ B="$(printf '%s' "$OUT" | "$PY" -c 'import json,sys; d=json.load(sys.stdin); pri
 S="$(printf '%s' "$OUT" | "$PY" -c 'import json,sys; d=json.load(sys.stdin); print(d["sha256"])')"
 "$PY" "$T/bundle.py" verify --bundle "$B" --sha256 "$S" >/dev/null
 echo "bundle ok: $(basename "$B") $(printf '%s' "$S" | cut -c1-16)…"
+LEAN_BIN="$(sed -n 's/^export SANITY_LEAN="\(.*\)"$/\1/p' "$SCRATCH/sanity.env" 2>/dev/null | tail -1)"
+if [ -n "$LEAN_BIN" ] && [ -x "$LEAN_BIN" ]; then
+  out="$(SANITY_LEAN="$LEAN_BIN" "$PY" "$T/lean_check.py" "$T/smoke/05_eq5_lean.lean" || true)"
+  case "$out" in
+    "VERDICT: HOLDS 05_eq5_lean proof"*) echo "lean ok: ${out#VERDICT: }" ;;
+    *) echo "lean check failed: $out" >&2; exit 1 ;;
+  esac
+else
+  echo "lean: not installed (skipped; run: setup_verifier_docker.sh lean)"
+fi
 echo "selftest passed"
 EOF
 }
@@ -195,6 +241,8 @@ if [ -x "$PY" ]; then "$PY" -c 'import sympy; print("python env: sympy", sympy._
 if [ -d "$SCRATCH" ] && su -s /bin/sh "$RUN_AS" -c "test -w '$SCRATCH'" 2>/dev/null; then echo "scratch: writable by $RUN_AS"; else echo "scratch: NOT writable by $RUN_AS (run install again)"; fi
 if cmp -s "$DATA/SOUL.md" "$REPO/agents/verifier/AGENT.md" 2>/dev/null; then echo "persona: Verifier (matches AGENT.md)"; else echo "persona: NOT the Verifier's AGENT.md"; fi
 grep -q '^SANITY_REPO=' "$DATA/.env" 2>/dev/null && echo ".env: SANITY_REPO set" || echo ".env: SANITY_REPO missing"
+L="$(sed -n 's/^SANITY_LEAN=//p' "$DATA/.env" 2>/dev/null | tail -1)"
+if [ -n "$L" ] && [ -x "$L" ]; then echo "lean: $("$L" --version | head -1)"; else echo "lean: not installed"; fi
 EOF
   echo "config: terminal.cwd=$(hermes_cmd config get terminal.cwd | tail -1)"
   echo "config: skills.external_dirs=$(hermes_cmd config get skills.external_dirs | tr -d '\n ')"
@@ -209,9 +257,9 @@ EOF2
 main() {
   local cmd="${1:-}"
   case "$cmd" in
-    install|selftest|configure|status) check_container; "$cmd" ;;
+    install|lean|selftest|configure|status) check_container; "$cmd" ;;
     update) check_container; install ;;
-    all) check_container; install; selftest; configure ;;
+    all) check_container; install; lean; selftest; configure ;;
     *) awk 'NR == 1 { next } /^#/ { sub(/^# ?/, ""); print; next } { exit }' "$0"; exit 2 ;;
   esac
 }

@@ -7,13 +7,32 @@
       "number": "1",
       "line": 1,
       "latex": "(a+b)^{2}=a^{2}+2ab+b^{2}",
-      "sympy": {"lhs": "(a + b)**2", "rhs": "a**2 + 2*a*b + b**2", "symbols": {"a": ["real"], "b": ["real"]}}
+      "sympy": {
+        "lhs": "(a + b)**2",
+        "rhs": "a**2 + 2*a*b + b**2",
+        "symbols": {
+          "a": [
+            "real"
+          ],
+          "b": [
+            "real"
+          ]
+        }
+      }
     },
     {
       "number": "2",
       "line": 2,
       "latex": "\\sin^{2}x+\\cos^{2}x=2",
-      "sympy": {"lhs": "sin(x)**2 + cos(x)**2", "rhs": "2", "symbols": {"x": ["real"]}}
+      "sympy": {
+        "lhs": "sin(x)**2 + cos(x)**2",
+        "rhs": "2",
+        "symbols": {
+          "x": [
+            "real"
+          ]
+        }
+      }
     },
     {
       "number": "3",
@@ -23,8 +42,20 @@
         "lhs": "sqrt(1 + eps)",
         "rhs": "1 + eps/2",
         "relation": "approx",
-        "symbols": {"eps": ["positive"]},
-        "regime": {"limit": {"symbol": "eps", "to": "0", "direction": "+"}, "order": "eps**2", "note": "for small epsilon"}
+        "symbols": {
+          "eps": [
+            "positive"
+          ]
+        },
+        "regime": {
+          "limit": {
+            "symbol": "eps",
+            "to": "0",
+            "direction": "+"
+          },
+          "order": "eps**2",
+          "note": "for small epsilon"
+        }
       }
     },
     {
@@ -35,8 +66,31 @@
         "lhs": "x/(1 + x)",
         "rhs": "x",
         "relation": "sim",
-        "symbols": {"x": ["positive"]},
-        "regime": {"note": "the source states no regime"}
+        "symbols": {
+          "x": [
+            "positive"
+          ]
+        },
+        "regime": {
+          "note": "the source states no regime"
+        }
+      }
+    },
+    {
+      "number": "5",
+      "line": 5,
+      "latex": "3(a+b)-2a=a+3b",
+      "sympy": {
+        "lhs": "3*(a + b) - 2*a",
+        "rhs": "a + 3*b",
+        "symbols": {
+          "a": [
+            "integer"
+          ],
+          "b": [
+            "integer"
+          ]
+        }
       }
     }
   ]

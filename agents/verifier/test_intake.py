@@ -115,3 +115,24 @@ def test_cli_prints_json_and_exit_codes(tmp_path, capsys):
     assert "sha256 mismatch" in capsys.readouterr().err
     assert main(["status", "--slug", "toy", "--scratch", str(tmp_path / "s")]) == 0
     assert json.loads(capsys.readouterr().out)["attempts"][0]["attempt"] == 1
+
+
+def test_new_attempt_can_carry_checks_plan_and_conversation(tmp_path):
+    scratch = tmp_path / "s"
+    first = write(tmp_path / "a.json", toy())
+    receive(scratch, "toy", first)
+    one = scratch / "toy" / "1"
+    (one / "verify" / "checks" / "01_x.py").write_text("print()", encoding="utf-8")
+    (one / "verify" / "checks" / "02_y.lean").write_text("-- THEOREM: t", encoding="utf-8")
+    (one / "verify" / "PLAN.md").write_text("plan", encoding="utf-8")
+    (one / "conversation.jsonl").write_text('{"kind": "question"}\n', encoding="utf-8")
+    (one / "verify" / "verdicts.json").write_text("{}", encoding="utf-8")
+    got = receive(scratch, "toy", first, new_attempt=True, carry=True)
+    two = scratch / "toy" / "2"
+    assert got.attempt == 2
+    assert sorted(p.name for p in (two / "verify" / "checks").iterdir()) == ["01_x.py", "02_y.lean"]
+    assert (two / "verify" / "PLAN.md").read_text() == "plan"
+    assert (two / "conversation.jsonl").read_text().startswith('{"kind": "question"}')
+    assert not (two / "verify" / "verdicts.json").exists()
+    plain = receive(scratch, "toy", first, new_attempt=True)
+    assert plain.attempt == 3 and not any((scratch / "toy" / "3" / "verify" / "checks").iterdir())

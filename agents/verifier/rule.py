@@ -24,20 +24,24 @@ EVIDENCE = {
 VERDICTS = tuple(EVIDENCE)
 CHECK_STATUSES = VERDICTS + ("ERROR",)
 
-# Only lean_check.py (not yet written) may report these. Until then a plain
-# script that prints them is an ERROR, so no verdict claims a proof it lacks.
+# Only lean_check.py may report these, and verify_run calls it itself for .lean
+# checks. A Python check script that prints them is an ERROR, so no verdict claims
+# a proof Lean did not accept.
 LEAN_ONLY = {"proof", "refutation"}
 
 
-def evidence_problem(verdict: str, kind: str) -> str | None:
-    """Why ``verdict`` with evidence ``kind`` is not acceptable, or None."""
+def evidence_problem(verdict: str, kind: str, *, from_lean: bool = False) -> str | None:
+    """Why ``verdict`` with evidence ``kind`` is not acceptable, or None.
+
+    ``from_lean`` is set only by verify_run for a result of lean_check.py.
+    """
     if verdict not in EVIDENCE:
         return f"unknown verdict {verdict!r}"
     if kind not in EVIDENCE[verdict]:
         allowed = ", ".join(EVIDENCE[verdict])
         return f"evidence {kind!r} does not fit {verdict} (allowed: {allowed})"
-    if kind in LEAN_ONLY:
-        return f"evidence {kind!r} is reserved for lean_check.py, which is not implemented yet"
+    if kind in LEAN_ONLY and not from_lean:
+        return f"evidence {kind!r} is reserved for Lean checks (.lean files run by lean_check.py)"
     return None
 
 

@@ -17,6 +17,10 @@ different equations.json than the one in the folder. ``verify`` checks the
 bundle's sha256 (if given), rejects unsafe paths, and compares every file with
 the manifest. To re-run a bundle: check out the manifest's code commit,
 extract, and run ``python agents/verifier/verify_run.py <extracted>/verify``.
+
+``verify`` and ``extract`` use only the Python standard library, so a bundle can
+be checked with any python3 (no SymPy needed). ``build`` needs the Verifier's
+environment.
 """
 
 from __future__ import annotations
@@ -32,8 +36,6 @@ import sys
 import tarfile
 import tempfile
 from pathlib import Path, PurePosixPath
-
-from verify_run import code_commit, run_identity
 
 SKIP_PARTS = {"__pycache__", ".lake", "build", ".pytest_cache"}
 SKIP_SUFFIXES = {".olean", ".ilean", ".pyc", ".tar.gz"}
@@ -79,6 +81,8 @@ def _versions() -> dict:
 
 def build(attempt_dir: Path, out: Path | None = None) -> tuple[Path, str]:
     """Write the bundle and return (path, sha256)."""
+    from verify_run import code_commit, run_identity  # needs the Verifier's environment
+
     root = Path(attempt_dir)
     missing = [name for name in REQUIRED if not (root / name).is_file()]
     if missing:

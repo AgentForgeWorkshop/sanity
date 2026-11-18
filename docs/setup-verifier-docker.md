@@ -10,6 +10,7 @@ The host's Python is never used.
 |---|---|
 | `/opt/data/sanity/` | clone of this repo, checked out at a branch or tag. Read-only for the bot. |
 | `/opt/data/sanity-venv/` | Python environment with SymPy and jsonschema, for the checks |
+| `/opt/data/lean/elan/` | Lean 4 (elan + the toolchain pinned in `agents/verifier/lean/lean-toolchain`), core library only, no Mathlib; `SANITY_LEAN` points at its `lean` |
 | `/opt/data/sanity-verifier/scratch/` | the bot's working folder (`terminal.cwd`): one run per `<slug>/<attempt>/`, plus `sanity.env` |
 | `/opt/data/SOUL.md` | the bot's persona: a copy of `agents/verifier/AGENT.md` |
 | `/opt/data/config.yaml` | `terminal.cwd`, `skills.external_dirs: [/opt/data/sanity/skills]`, `skills.auto_load: [verify-math]`, `gateway.bot_loop_guard` (below) |
@@ -65,7 +66,8 @@ From a clone of this repo on the host, with the container running:
 
 ```bash
 bash scripts/setup_verifier_docker.sh install     # clone, Python env, scratch folder
-bash scripts/setup_verifier_docker.sh selftest    # example run inside the container
+bash scripts/setup_verifier_docker.sh lean        # optional: Lean 4 (about a minute, a few hundred MB)
+bash scripts/setup_verifier_docker.sh selftest    # example run (and the smoke Lean proof) inside the container
 bash scripts/setup_verifier_docker.sh configure   # persona, skill, cwd, env; backs up and restarts
 bash scripts/setup_verifier_docker.sh status
 ```

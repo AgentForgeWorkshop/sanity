@@ -66,3 +66,13 @@ def test_cli(tmp_path, capsys):
     shown = json.loads(capsys.readouterr().out)
     assert shown["questions_asked"] == 0 and shown["entries"][0]["kind"] == "command"
     assert main(["add", "--dir", str(tmp_path), "--role", "reader", "--kind", "question", "--text", "x"]) == 1
+
+
+def test_questions_are_numbered_and_answers_match_by_number(tmp_path):
+    first = append(tmp_path, "verifier", "question", "q1", eq="4")
+    second = append(tmp_path, "verifier", "question", "q2", eq="7")
+    assert (first["q"], second["q"]) == (1, 2)
+    append(tmp_path, "reader", "answer", "as x -> 0", q=2)
+    assert [q["q"] for q in open_questions(tmp_path)] == [1]
+    append(tmp_path, "reader", "answer", "regime stated in sec. 3", q=1)
+    assert open_questions(tmp_path) == []

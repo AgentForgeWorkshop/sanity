@@ -17,6 +17,10 @@ top-level literals, read without running it:
     CORRECTION = "E=..."     #   the corrected LaTeX
                              # neither: a supporting check
 
+A ``.lean`` file in VERIFY_DIR/checks is a Lean check (see lean_check.py): the
+runner runs Lean on it itself, and only such a check can give evidence ``proof``
+or ``refutation``.
+
 Every claim gets one verdict (rule.combine). A failing claim gets the
 correction from its correction check, marked verified only if that check
 HOLDS. If the run directory has an equations.json, it is validated first and
@@ -48,6 +52,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+import lean_check
 from claims import ClaimError, load_claims
 from rule import CHECK_STATUSES, VERDICTS, CheckResult, ClaimVerdict, combine, evidence_problem
 
@@ -91,7 +96,17 @@ def parse_verdict(text: str):
 
 
 def script_constants(script: Path) -> dict:
-    """Top-level ``NAME = "literal"`` assignments, read without executing."""
+    """Top-level ``NAME = "literal"`` assignments, read without executing.
+
+    For a .lean check: its ``-- KEY: value`` header lines, with ENGINE = "lean".
+    """
+    if script.suffix == ".lean":
+        try:
+            meta = lean_check.header(script)
+        except OSError:
+            return {"ENGINE": "lean"}
+        keys = ("CHECK_ID", "CLAIM", "CORRECTS", "CORRECTION", "THEOREM", "EXPECT")
+        return {"ENGINE": "lean", **{k: v for k, v in meta.items() if k in keys}}
     try:
         tree = ast.parse(script.read_text(encoding="utf-8"))
     except (OSError, SyntaxError, ValueError):
@@ -148,7 +163,7 @@ def code_commit(root: Path = CODE_DIR) -> str:
 
 def check_scripts(verify_dir: Path, only: str) -> list[Path]:
     checks = verify_dir / "checks"
-    scripts = sorted(checks.glob("*.py"))
+    scripts = sorted([*checks.glob("*.py"), *checks.glob("*.lean")])
     return [script for script in scripts if only in script.name]
 
 
@@ -222,26 +237,38 @@ def run_one(script: Path, root: Path, timeout: int) -> Row:
     engine = constants.get("ENGINE") if constants.get("ENGINE") in ENGINES else "unspecified"
     role, claim = script_role(constants)
     correction = constants.get("CORRECTION") if role == "correction" else None
-    env = os.environ.copy()
-    env["PYTHONPATH"] = str(root) + os.pathsep + env.get("PYTHONPATH", "")
     started = datetime.datetime.now()
-    try:
-        completed = subprocess.run(
-            [sys.executable, str(script)],
-            cwd=root,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            env=env,
-            check=False,
-        )
-        output = completed.stdout + completed.stderr
-        code = completed.returncode
-    except subprocess.TimeoutExpired:
-        output, code = "", 124
+    lean_result = None
+    output, code = "", 0
+    if script.suffix == ".lean":
+        # The runner calls Lean itself: the only path to evidence proof/refutation.
+        lean_result = lean_check.check(script, timeout=timeout)
+    else:
+        env = os.environ.copy()
+        env["PYTHONPATH"] = str(root) + os.pathsep + env.get("PYTHONPATH", "")
+        try:
+            completed = subprocess.run(
+                [sys.executable, str(script)],
+                cwd=root,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                env=env,
+                check=False,
+            )
+            output = completed.stdout + completed.stderr
+            code = completed.returncode
+        except subprocess.TimeoutExpired:
+            output, code = "", 124
     seconds = round((datetime.datetime.now() - started).total_seconds(), 1)
     base = dict(engine=engine, role=role, claim=claim, correction=correction,
                 seconds=seconds, script=script.name)
+    if lean_result is not None:
+        verdict, check_id, evidence, detail = lean_result
+        problem = None if verdict == "ERROR" else evidence_problem(verdict, evidence, from_lean=True)
+        if verdict == "ERROR" or problem:
+            return Row(check_id, "ERROR", "none", detail=problem or detail, **base)
+        return Row(check_id, verdict, evidence, detail=detail.replace("|", "/"), **base)
     parsed = parse_verdict(output) if code != 124 else "timed out"
     if isinstance(parsed, str):
         detail = parsed
