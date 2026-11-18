@@ -13,6 +13,8 @@ directory. The ruling comes from the printed verdict. There is no separate judge
 | 01_eq3_energy_step | (3) corrected | step | SymPy | new |
 | 02_eq3_paper_energy_step | (3) as printed | step | SymPy | new |
 | 03_eq4_decay_units | (4) | units | SymPy | new |
+| 04_eq4_corrected_decay_units | (4) corrected | units | Python | new |
 
-A flagged step that Lean has accepted is a later script. It may print `Lean-PROVED`
-only after Lean has accepted the proof in that same run.
+Checks 01 and 04 check the corrected forms of (3) and (4) (`CORRECTS`), so the
+report can give verified corrections. A Lean check would be a later script; only
+`lean_check.py` may report evidence `proof` or `refutation`.
