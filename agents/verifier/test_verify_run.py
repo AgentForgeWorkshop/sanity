@@ -33,8 +33,8 @@ def test_parse_accepts_one_verdict_line():
         ("VERDICT: HOLDS a | ok", "malformed"),
         ("VERDICT: HOLDS a counterexample | ok", "does not fit"),
         ("VERDICT: UNCHECKED a symbolic | ok", "does not fit"),
-        ("VERDICT: HOLDS a proof | theorem accepted", "reserved for lean_check"),
-        ("VERDICT: FAILS a refutation | negation proved", "reserved for lean_check"),
+        ("VERDICT: HOLDS a proof | theorem accepted", "reserved for Lean checks"),
+        ("VERDICT: FAILS a refutation | negation proved", "reserved for Lean checks"),
     ],
 )
 def test_parse_rejects_bad_lines(line, problem):
@@ -248,6 +248,7 @@ def test_specimen_run_gives_verdicts_and_a_verified_correction(tmp_path):
     assert claims["4"]["correction"]["verified"] is True
 
 
+@pytest.mark.skipif(not (REPO / ".git").exists(), reason="needs the sanity code as a git checkout")
 def test_scratch_attempt_outside_git_records_code_commit_and_inputs(tmp_path):
     """A Verifier scratch folder is not a git repo; the code commit must still be known."""
     attempt = tmp_path / "toy" / "2"

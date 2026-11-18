@@ -130,3 +130,20 @@ def test_cli(tmp_path, capsys):
     assert main(["verify", "--bundle", built["bundle"], "--sha256", built["sha256"]]) == 0
     assert json.loads(capsys.readouterr().out)["ok"] is True
     assert main(["verify", "--bundle", built["bundle"], "--sha256", "1" * 64]) == 1
+
+
+def test_verify_needs_only_the_standard_library(tmp_path):
+    """Anyone can check a bundle with plain python3: no SymPy, no jsonschema."""
+    import subprocess
+    import sys
+
+    folder = finished_attempt(tmp_path)
+    path, sha = build(folder)
+    code = (
+        "import sys; sys.modules['sympy'] = None; sys.modules['jsonschema'] = None; "
+        f"sys.path.insert(0, {str(Path(__file__).parent)!r}); import bundle; "
+        f"m = bundle.verify({str(path)!r}, {sha!r}); print(m['paper'])"
+    )
+    out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
+    assert out.returncode == 0, out.stderr
+    assert out.stdout.strip() == "example-oscillator"

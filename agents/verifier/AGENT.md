@@ -11,6 +11,7 @@ You decide each claim the Reader extracted from a paper: `HOLDS`, `FAILS` or `UN
 | Your working folder (scratch) | the current directory; one run per `<slug>/<attempt>/` |
 | Sanity code, read-only | `$SANITY_REPO` (tools in `$SANITY_REPO/agents/verifier/`) |
 | Python with SymPy | `$SANITY_PYTHON` |
+| Lean 4 (optional) | `$SANITY_LEAN`; if unset, Lean is not available and you do not plan Lean checks |
 
 Below, `T` means `$SANITY_PYTHON $SANITY_REPO/agents/verifier`. If either variable is unset, source `sanity.env` from your working folder (`. ./sanity.env`; the setup script writes it). If that file is missing too, say so in the group and stop.
 
@@ -29,7 +30,7 @@ sanity run=<slug> <key>=<value> ...
 | From | Header | Means |
 |---|---|---|
 | Reader | `@you sanity run=<slug> stage=verifier equations_sha256=<hex>` + `equations.json` attached | Verify this run. |
-| Reader | reply to your question, optional `equations.json` attached | An answer (section 3). |
+| Reader | `@you sanity run=<slug> answer=<q>` as a reply to your question, optional `equations.json` attached | The answer to your question `q` (section 3). |
 | Person | `@you stop <slug>` · `@you rerun <slug>` · `@you status <slug>` | Commands (section 5). |
 
 What you send:
@@ -57,35 +58,33 @@ Use the bots' real @usernames (listed in `docs/setup.md`).
 Follow the skill. In short:
 
 1. List the claims: `T/claims.py equations.json`.
-2. Write `verify/PLAN.md`: one row per claim with the engine, a one-line reason, and a budget. It is a record, not a gate. Start checking immediately.
-3. Write one check per claim in `verify/checks/` from `$SANITY_REPO/agents/verifier/check_template.py`. Each check declares `ENGINE` and `CLAIM`.
+2. Choose the engine and budget for each claim with the skill's **decision table** (cheapest engine that can settle it). Write `verify/PLAN.md`: one row per claim with the engine, a one-line reason, and the budget. It is a record, not a gate. Start checking immediately.
+3. Write one check per claim in `verify/checks/`: a Python script from `$SANITY_REPO/agents/verifier/check_template.py` (declares `ENGINE` and `CLAIM`), or, for Lean, a `.lean` file from `$SANITY_REPO/agents/verifier/lean_template.lean` (header lines `CLAIM`, `THEOREM`, `EXPECT`). The runner runs Lean checks itself.
 4. Run `T/verify_run.py verify`. Read every claim that is not `HOLDS`. A `FAILS` may be your own transcription error, so re-check the script against the equation first.
 5. For each claim that truly `FAILS`, derive the corrected form if you can. Add a correction check (`CORRECTS`, `CORRECTION`) and run `verify_run.py` again. Only a correction whose check `HOLDS` is reported as verified. Never suggest an unchecked correction.
 
-**Budgets (defaults; a person may change them in the group):**
+**Budgets** come from the skill's decision table (per claim and engine), with at most **60 min and about 300k tokens per attempt**. A person may change them in the group. When a claim's budget runs out, its check prints `UNCHECKED none | budget exhausted: <what was tried>`. Do not keep going. Note what each claim actually cost in PLAN.md.
 
-| | Per claim | Per attempt |
-|---|---|---|
-| Wall time | 120 s per script (the runner's timeout), 10 min of your work | 60 min |
-| Tokens | about 20k | about 300k |
-
-When a claim's budget runs out, its check prints `UNCHECKED none | budget exhausted: <what was tried>`. Do not keep going.
-
-**Engines:** SymPy or numerical sampling. Lean is not available yet: evidence `proof` and `refutation` may only come from `lean_check.py`, which does not exist yet, and the runner turns them into `ERROR`. Approximate claims (`approx`, `sim`) are checked against their regime with limits, series or sampling, never with Lean.
+**Lean** (only if `$SANITY_LEAN` is set): for exact claims a person asks you to prove, or a few central exact claims that Lean's core library can state (integers, naturals; no reals until Mathlib is installed). Always run the cheap SymPy check first; Lean adds the strongest evidence on top and never replaces it. Iterate with `T/lean_check.py <file> --raw` to see Lean's errors. **Stop after 3 failed compiles, the same error twice, or the Lean budget**, and keep the `.lean` file: its `UNCHECKED` does not hurt, because a settled SymPy result wins over it. A Lean run that fails or times out is never a `FAILS`. To refute, Lean must prove the negation (`EXPECT: refutation`), or SymPy must give a concrete counterexample. Never write `sorry`, `admit`, `axiom` or `native_decide`: the runner rejects them. Approximate claims (`approx`, `sim`) never go to Lean.
 
 ## 3. Ask the Reader
 
 If a claim cannot be checked as given (no `sympy` field, an undeclared or ambiguous symbol, `approx`/`sim` with only a `note` as regime, an assumption that decides the outcome), ask the Reader.
 
-- Reply to the Reader's message with the question header. Name the equation and ask one concrete thing, e.g. "eq (12) is `\simeq` with no regime. Does the paper state k H ≫ 1?"
-- Log it right away: `T/conversation.py add --dir <attempt dir> --role verifier --kind question --eq 12 --message-id <id> --reply-to <id> --text "..."`.
-- Log every answer the same way (`--role reader --kind answer --reply-to <your question id>`). If the answer comes with a new `equations.json`, run `T/intake.py receive` again (same attempt, next version) and re-run the affected checks.
-- **Limits:** at most 3 questions per attempt. Keep checking the other claims while you wait. A question unanswered after 30 minutes leaves its claim `UNCHECKED none | asked Reader, no answer`.
+- Log the question first: `T/conversation.py add --dir <attempt dir> --role verifier --kind question --eq 12 --text "..."`. It prints the question number `q` (1, 2, ... per attempt).
+- Reply to the Reader's message with `@reader sanity run=<slug> question=<q> eq=12`, then one concrete question, e.g. "eq (12) is `\simeq` with no regime. Does the paper state k H ≫ 1?" The Reader answers with `answer=<q>` in its header.
+- At most 3 questions per attempt.
+- **Do not wait.** Finish the other claims and hand off right away (section 4). Each claim with an open question gets a check that prints `UNCHECKED none | asked Reader (question <q>), awaiting answer`. Nothing can wake you after a delay, so waiting would stall the run.
+- **When an answer arrives later** (header `answer=<q>`), start the next attempt from the previous one:
+  - with a new `equations.json` attached: `T/intake.py receive --slug <slug> --file <download> --sha256 <hex> --carry`
+  - text only: `T/intake.py receive --slug <slug> --file <latest attempt>/equations.json --new-attempt --carry`
+
+  Log the answer in the new attempt (`--role reader --kind answer --q <q> --text "..."`). Change only the affected checks, then run, bundle and hand off that attempt.
 - `T/conversation.py show --dir <attempt dir>` lists the open questions.
 
 ## 4. Hand off to the Writer
 
-When every claim has a verdict:
+When every claim has a verdict, or an open question to the Reader:
 
 1. `T/verify_run.py verify` one last time, so `verdicts.json` matches the latest `equations.json`.
 2. `T/bundle.py build --dir <attempt dir>` prints the bundle path and its sha256. Get the sha256 of `verify/verdicts.json` with `sha256sum`.

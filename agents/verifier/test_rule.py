@@ -19,6 +19,9 @@ def test_evidence_must_fit_the_verdict():
 def test_lean_evidence_is_reserved_for_lean_check():
     assert "reserved" in evidence_problem("HOLDS", "proof")
     assert "reserved" in evidence_problem("FAILS", "refutation")
+    assert evidence_problem("HOLDS", "proof", from_lean=True) is None
+    assert evidence_problem("FAILS", "refutation", from_lean=True) is None
+    assert "does not fit" in evidence_problem("HOLDS", "refutation", from_lean=True)
 
 
 def test_strength_orders_evidence():

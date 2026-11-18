@@ -34,8 +34,8 @@ says how that was decided.
 
 | Evidence | What the script must have done |
 |---|---|
-| `proof` | Lean proved the claim. Only `lean_check.py` may print this (not written yet); from any other script it is an ERROR. |
-| `refutation` | Lean proved the negation. Same restriction. |
+| `proof` | Lean proved the claim. Only a `.lean` check, which `verify_run.py` runs through `lean_check.py` itself, can give this; from a Python script it is an ERROR. |
+| `refutation` | Lean proved the claim's negation. Same restriction. |
 | `symbolic` | SymPy settled it exactly: `simplify(lhs - rhs) == 0`, a nonzero residual under the stated assumptions, or a dimension mismatch. |
 | `asymptotic` | SymPy limit or series in the stated regime: the ratio tends to 1 (or does not), or the error is (or is not) of the stated order. |
 | `numerical` | At least 200 sampled points in the stated ranges, fixed seed, max relative error reported. Evidence, not proof: the report must say "sampled". |
@@ -45,9 +45,38 @@ says how that was decided.
 malformed VERDICT line, crash, timeout, evidence that does not fit the verdict).
 Fix the check.
 
-Choose the engine per claim. Most claims never need Lean. Lean is for a
-paper's few central exact claims; approximations, asymptotics and WKB stay
-with SymPy and numerics. Until `lean_check.py` exists, do not plan Lean checks.
+## Choosing the engine and the budget
+
+Use the **cheapest engine that can settle the claim**, and give it a budget up
+front. Go down the table and take the first row that fits:
+
+| Claim | Engine (evidence) | Budget per claim | If it does not settle |
+|---|---|---|---|
+| Units or dimensions | python, exponent bookkeeping (`symbolic`) | 60 s, 3k tokens | ask the Reader for the units of each symbol |
+| Exact algebraic or trigonometric identity, or a derivation step | SymPy `simplify` / `expand` (`symbolic`; a nonzero residual under the stated assumptions is a FAILS) | 120 s, 5k tokens | numerical row below |
+| `approx` or `sim` with a stated regime | SymPy `limit` / `series` (`asymptotic`) | 120 s, 15k tokens | sample inside the regime (`numerical`) |
+| No closed form: integrals, special functions, simplify stalls | sampling, ≥ 200 points, fixed seed (`numerical`, or `counterexample` on a clear miss) | 300 s, 10k tokens | UNCHECKED with what was tried |
+| Exact claim a person asked you to prove, or one of a paper's few **central** exact claims, statable over Nat or Int | **Lean** in addition to SymPy (`proof`, or `refutation` via the negation) | 3 compile attempts, 120 s each, 30k tokens | keep the SymPy result; the Lean check stays UNCHECKED |
+
+- **Cost first.** A SymPy check costs seconds and a few thousand tokens. A Lean
+  proof costs a compile loop: each failed attempt means reading Lean's error and
+  rewriting the proof. Lean is never the default. It is extra evidence for the
+  claims that matter most.
+- **Lean stop rule.** Stop after 3 failed compiles, when the same error comes
+  back twice, or when the Lean budget runs out, whichever comes first. A failed
+  or timed-out Lean check is `UNCHECKED`, never `FAILS`, and does not hurt:
+  `rule.combine` shows the strongest *settled* result (e.g. SymPy's `HOLDS symbolic`).
+  If SymPy found a counterexample, prefer reporting that; prove the negation in
+  Lean only if the counterexample is a simple integer instance.
+- **Without Mathlib** Lean's core library has no real numbers, so most physics
+  claims cannot be stated in Lean yet. Do not force them.
+- **Approximations, asymptotics and WKB** never go to Lean.
+- **Per attempt:** at most 60 min and about 300k tokens. If the plan would
+  exceed that, check the claims in the paper's order and mark the rest
+  `UNCHECKED none | attempt budget exhausted`.
+- Record each claim's actual cost (runner seconds, compile attempts, your
+  estimate of the tokens) under "Changes during the run" in PLAN.md, so budgets
+  can be tuned from real runs.
 
 ## One script, one check
 
@@ -90,8 +119,26 @@ disagree, the claim is UNCHECKED with a conflict. A failing claim carries the
 correction from its `CORRECTS` check, marked verified only if that check
 HOLDS. Never suggest a correction you have not checked.
 
-Start from `agents/verifier/check_template.py`. No paper prose in the script:
-equation, label, and one line of claim.
+A **Lean check** is a `.lean` file in `verify/checks/`, started from
+`agents/verifier/lean_template.lean`, with header comments instead of Python
+constants:
+
+```lean
+-- CHECK_ID: 07_eq14_lean
+-- CLAIM: 14                  (or CORRECTS: 14 and CORRECTION: <latex>)
+-- THEOREM: Sanity.Check.eq14
+-- EXPECT: proof              (refutation: the theorem is the claim's negation)
+```
+
+The runner compiles it with Lean, rejects `sorry`, `admit`, `axiom` and
+`native_decide`, and accepts only the standard axioms (propext,
+Classical.choice, Quot.sound). State the theorem exactly as the claim's sympy
+form, with the same variables and assumptions: a proof of a different statement
+proves nothing about the paper. `lean_check.py <file> --raw` shows Lean's own
+messages while you work on a proof.
+
+Start Python checks from `agents/verifier/check_template.py`. No paper prose in
+a check: equation, label, and one line of claim.
 
 ## Input
 
@@ -135,6 +182,7 @@ equations.json sha256: <first 16 hex>  ·  claims: <k>  ·  started: <time>
 | (7) | 05_eq7_growth_rate | limit | sympy | asymptotic ratio as eps -> 0 | 120 s, 15k tokens |
 | (9) | 06_eq9_integral | number | numerical | integral has no closed form | 300 s, 10k tokens |
 | (12) | - | - | - | approx without regime: asked Reader (question 1) | - |
+| (14) | 07_eq14_lean | step | lean | central result, integer identity; SymPy check 06 HOLDS | 3 compiles, 30k tokens |
 
 Changes during the run: <budget changes, answers that changed a claim>
 ```

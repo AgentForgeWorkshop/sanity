@@ -11,7 +11,7 @@ SMOKE = Path(__file__).resolve().parent / "smoke" / "equations.json"
 
 def test_smoke_file_loads_and_expected_outcomes_hold():
     claims = {c.number: c for c in load_claims(SMOKE)}
-    assert set(claims) == {"1", "2", "3", "4"}
+    assert set(claims) == {"1", "2", "3", "4", "5"}
 
     one, two, three, four = (claims[n] for n in "1234")
     assert sp.simplify(one.lhs - one.rhs) == 0  # (1) HOLDS
@@ -25,3 +25,7 @@ def test_smoke_file_loads_and_expected_outcomes_hold():
     assert ratio.is_finite  # error is O(eps**2): (3) HOLDS
 
     assert four.relation == "sim" and not four.regime.is_stated  # (4) needs a question
+
+    five = claims["5"]
+    assert sp.simplify(five.lhs - five.rhs) == 0  # (5) HOLDS; meant for a Lean proof
+    assert all(s.is_integer for s in five.symbols.values())
