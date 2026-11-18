@@ -1,32 +1,13 @@
 const AGENTS = ["reader", "verifier", "writer"];
-const TERM = "sympy ... VERDICT: FAILED";
+const TERM = "VERDICT: FAILS (symbolic)";
 const NOTE = "Missing ½ on the spring term.";
 
 function easeOutCubic(t) {
   return 1 - (1 - t) ** 3;
 }
 
-function easeOutBack(t) {
-  const c = 0.55;
-  return 1 + (c + 1) * (t - 1) ** 3 + c * (t - 1) ** 2;
-}
-
-function curve(a, b, t, bow) {
-  const dx = b.x - a.x;
-  const dy = b.y - a.y;
-  const len = Math.hypot(dx, dy) || 1;
-  const mag = Math.min(24, len * 0.16) * bow;
-  const nx = -dy / len;
-  const ny = dx / len;
-  const c1x = a.x + dx * 0.34 + nx * mag;
-  const c1y = a.y + dy * 0.08 + ny * mag;
-  const c2x = a.x + dx * 0.7 + nx * mag * 0.3;
-  const c2y = a.y + dy * 0.9 + ny * mag * 0.12;
-  const u = 1 - t;
-  return {
-    x: u * u * u * a.x + 3 * u * u * t * c1x + 3 * u * t * t * c2x + t * t * t * b.x,
-    y: u * u * u * a.y + 3 * u * u * t * c1y + 3 * u * t * t * c2y + t * t * t * b.y,
-  };
+function curve(a, b, t) {
+  return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
 }
 
 export function mountStage() {
@@ -39,51 +20,149 @@ export function mountStage() {
   );
   const pos = {};
   const at = {};
-  let bow = 1;
   let busy = 0;
 
-  const shifted = {
-    "fail-3": { name: "read-3", ax: 1, ay: 0.15 },
-  };
+  const TAG_X = 13;
+  const TAG_Y = 15;
 
-  function anchor(name) {
-    const spec = shifted[name];
-    const el = stage.querySelector(`[data-anchor="${spec ? spec.name : name}"]`);
+  function boxOf(r) {
     const s = stage.getBoundingClientRect();
-    const html = el.matches(".math") ? el.querySelector(".katex-html") : null;
-    let r;
-    if (html) {
-      const range = document.createRange();
-      range.selectNodeContents(html);
-      r = range.getBoundingClientRect();
-    } else {
-      r = el.getBoundingClientRect();
+    return { x: r.left - s.left, y: r.top - s.top, w: r.width, h: r.height };
+  }
+
+  function inkOf(el) {
+    const html = el.querySelector(".katex-html");
+    if (!html) return boxOf(el.getBoundingClientRect());
+    const range = document.createRange();
+    range.selectNodeContents(html);
+    return boxOf(range.getBoundingClientRect());
+  }
+
+  function hits(a, b) {
+    return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+  }
+
+  function tagSize(name) {
+    const tag = cursors[name].querySelector(".tag");
+    return { w: tag.offsetWidth || 58, h: tag.offsetHeight || 16 };
+  }
+
+  function pieces(p, name) {
+    const { w, h } = tagSize(name);
+    const tag = p.flip
+      ? { x: p.x - TAG_X - w, y: p.y + TAG_Y, w, h }
+      : { x: p.x + TAG_X, y: p.y + TAG_Y, w, h };
+    return [{ x: p.x - 1, y: p.y - 1, w: 16, h: 20 }, tag];
+  }
+
+  function obstacles(except) {
+    const boxes = [];
+    stage.querySelectorAll(".math").forEach((el) => boxes.push(inkOf(el)));
+    stage.querySelectorAll(".ln, .sheet-top .eyebrow").forEach((el) => {
+      boxes.push(boxOf(el.getBoundingClientRect()));
+    });
+    const flag = stage.querySelector(".flag");
+    if (flag) boxes.push(boxOf(flag.getBoundingClientRect()));
+    stage.querySelectorAll(".term.is-in, .proved.is-in, .margin-note.is-in").forEach((el) => {
+      boxes.push(boxOf(el.getBoundingClientRect()));
+    });
+    for (const other of AGENTS) {
+      if (other === except || !pos[other]) continue;
+      boxes.push(...pieces(pos[other], other));
     }
-    const ax = spec ? spec.ax : Number(el.dataset.ax ?? 0);
-    const ay = spec ? spec.ay : Number(el.dataset.ay ?? 0);
-    return {
-      x: r.left - s.left + r.width * ax,
-      y: r.top - s.top + r.height * ay,
-    };
+    return boxes.map((b) => ({ x: b.x - 4, y: b.y - 3, w: b.w + 8, h: b.h + 6 }));
+  }
+
+  function clearOf(p, name) {
+    const mine = pieces(p, name);
+    const blocked = obstacles(name).some((o) => mine.some((b) => hits(b, o)));
+    if (blocked) return false;
+    const w = stage.clientWidth;
+    const h = stage.clientHeight;
+    return mine.every((b) => b.x >= 1 && b.y >= 1 && b.x + b.w <= w - 1 && b.y + b.h <= h - 1);
+  }
+
+  function settle(name, p) {
+    if (clearOf(p, name)) return p;
+    const steps = [10, 18, 28, 40, 56, 72];
+    const shifts = [];
+    for (const step of steps) {
+      shifts.push([step, 0], [-step, 0], [0, step], [0, -step], [step, -step], [-step, -step], [step, step], [-step, step]);
+    }
+    for (const flip of [p.flip, !p.flip]) {
+      for (const [dx, dy] of shifts) {
+        const q = { x: p.x + dx, y: p.y + dy, flip };
+        if (clearOf(q, name)) return q;
+      }
+    }
+    return p;
+  }
+
+  function mathEdge() {
+    let edge = 0;
+    stage.querySelectorAll(".eqs .math").forEach((el) => {
+      const ink = inkOf(el);
+      edge = Math.max(edge, ink.x + ink.w);
+    });
+    return edge + 16;
+  }
+
+  function laneFor() {
+    return mathEdge();
+  }
+
+  function rowTop(id) {
+    const line = stage.querySelector(`[data-anchor="${id}"]`).closest(".line");
+    return boxOf(line.getBoundingClientRect()).y + 1;
+  }
+
+  function preferred(name) {
+    const lane = laneFor();
+    if (name.startsWith("read-")) {
+      return { x: lane, y: rowTop(name), flip: false };
+    }
+    if (name === "fail-3" || name === "clear-4" || name === "park-verifier") {
+      const sheet = boxOf(stage.querySelector(".sheet").getBoundingClientRect());
+      const id = name === "clear-4" ? "read-4" : name === "park-verifier" ? "read-2" : "read-3";
+      return { x: sheet.x + sheet.w - 22, y: rowTop(id), flip: true };
+    }
+    if (name === "units-4") {
+      const flag = boxOf(stage.querySelector('[data-anchor="units-4"]').getBoundingClientRect());
+      return { x: flag.x - 22, y: rowTop("read-4"), flip: true };
+    }
+    if (name === "park-reader") {
+      return { x: lane, y: Math.max(4, rowTop("read-1") - 28), flip: false };
+    }
+    const spot = boxOf(stage.querySelector(`[data-anchor="${name}"]`).getBoundingClientRect());
+    return { x: spot.x, y: spot.y, flip: name === "park-writer" };
+  }
+
+  function anchor(agent, dest) {
+    return settle(agent, preferred(dest));
   }
 
   function place(name, p) {
     pos[name] = p;
     const node = cursors[name];
     node.style.transform = `translate3d(${p.x}px, ${p.y}px, 0)`;
-    const tag = node.querySelector(".tag");
-    const need = p.x + tag.offsetWidth + 18 > stage.clientWidth;
-    const flipped = node.classList.contains("is-flip");
-    if (need && !flipped) node.classList.add("is-flip");
-    else if (!need && flipped && p.x + tag.offsetWidth + 40 < stage.clientWidth) {
-      node.classList.remove("is-flip");
-    }
+    node.classList.toggle("is-flip", !!p.flip);
+  }
+
+  function ripple(name) {
+    if (reduce || !pos[name]) return;
+    const el = document.createElement("span");
+    el.className = "ripple";
+    el.style.left = `${pos[name].x}px`;
+    el.style.top = `${pos[name].y + 3}px`;
+    el.style.color = getComputedStyle(cursors[name]).color;
+    stage.appendChild(el);
+    el.addEventListener("animationend", () => el.remove());
   }
 
   function holdPositions() {
     for (const name of AGENTS) {
       if (!at[name]) continue;
-      place(name, anchor(at[name]));
+      place(name, anchor(name, at[name]));
     }
   }
 
@@ -111,9 +190,11 @@ export function mountStage() {
     if (kind === "read") {
       stage.querySelectorAll(".line.is-current").forEach((el) => el.classList.remove("is-current"));
       line.classList.add("is-read", "is-current");
+      ripple("reader");
       return;
     }
     line.classList.add(`is-${kind}`);
+    ripple("verifier");
   }
 
   function hideScene() {
@@ -146,7 +227,7 @@ export function mountStage() {
 
   function glide(name, dest) {
     const from = { ...pos[name] };
-    const first = anchor(dest);
+    const first = anchor(name, dest);
     const dist = Math.hypot(first.x - from.x, first.y - from.y);
     if (dist < 3) {
       at[name] = dest;
@@ -154,20 +235,24 @@ export function mountStage() {
       return Promise.resolve();
     }
     const ms = Math.max(560, Math.min(1180, 420 + dist * 1.05));
-    const side = bow;
-    bow *= -1;
-    const ease = dist > 56 ? easeOutBack : easeOutCubic;
+    const ease = easeOutCubic;
+    const target = first;
     busy += 1;
     return new Promise((resolve) => {
       const start = performance.now();
+      let x = from.x;
+      let y = from.y;
       const frame = (now) => {
         const raw = Math.min(1, (now - start) / ms);
-        const target = anchor(dest);
-        const p = raw === 1 ? target : curve(from, target, ease(raw), side);
-        place(name, p);
+        const goal = raw === 1 ? target : curve(from, target, ease(raw));
+        const follow = raw > 0.94 ? 1 : 0.36;
+        x += (goal.x - x) * follow;
+        y += (goal.y - y) * follow;
+        place(name, { x, y, flip: target.flip });
         if (raw < 1) requestAnimationFrame(frame);
         else {
           at[name] = dest;
+          place(name, target);
           busy -= 1;
           resolve();
         }
@@ -201,7 +286,7 @@ export function mountStage() {
   function boot(map) {
     for (const name of AGENTS) {
       at[name] = map[name];
-      place(name, anchor(map[name]));
+      place(name, anchor(name, map[name]));
     }
     stage.classList.add("is-ready");
   }
@@ -262,6 +347,7 @@ export function mountStage() {
       await hold(280);
       show("badge");
       await hold(640);
+      await glide("verifier", "clear-4");
       await glide("verifier", "units-4");
       mark(4, "units");
       show("units");

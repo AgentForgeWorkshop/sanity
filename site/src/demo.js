@@ -31,7 +31,7 @@ export function mount(katex) {
     {
       at: 3700,
       run: () => {
-        say("Verifier. Proved in Lean.");
+        say("Verifier. Lean: refutation.");
       },
     },
     {
@@ -46,7 +46,7 @@ export function mount(katex) {
       at: 6400,
       run: () => {
         document.querySelector('[data-eq="4"]').classList.add("is-focus");
-        say("Verifier. One more step fails on units.");
+        say("Verifier. Equation 4 fails (symbolic).");
       },
     },
     {

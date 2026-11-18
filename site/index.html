@@ -38,17 +38,17 @@
         <div class="stage" data-stage>
           <p class="sr-only" id="stage-summary">
             Example note, a damped oscillator. Reader marks equations 1 through 5.
-            Verifier stops on equation 3, where SymPy prints VERDICT FAILED, then a Proved in Lean badge.
+            Verifier stops on equation 3, where the chip prints VERDICT: FAILS (symbolic), then a Lean: refutation badge.
             Verifier flags equation 4 for units. Writer notes that the spring term is missing a half.
           </p>
           <article class="sheet" aria-label="Example note" aria-describedby="stage-summary">
             <header class="sheet-top">
               <span class="eyebrow">Example</span>
+              <span class="hot" data-anchor="park-reader"></span>
               <span class="eyebrow">Damped oscillator</span>
             </header>
             <div class="sheet-body">
               <div class="eqs">
-                <span class="hot" data-anchor="park-reader"></span>
                 <span class="hot" data-anchor="park-verifier"></span>
                 <div class="line" data-line="1">
                   <span class="ln">(1)</span>
@@ -68,7 +68,7 @@
                       <p class="term" data-chip="term">
                         <span data-typed="term"></span><span class="caret"></span>
                       </p>
-                      <p class="proved" data-chip="badge">Proved in Lean</p>
+                      <p class="proved" data-chip="badge"><svg class="check" viewBox="0 0 12 12" width="11" height="11" aria-hidden="true"><path d="M2.2 6.1 4.8 8.7 9.8 3.2" /></svg>Lean: refutation</p>
                     </div>
                   </div>
                 </div>
@@ -96,19 +96,19 @@
 
           <div class="cursor" data-cursor="reader" aria-hidden="true">
             <svg viewBox="0 0 16 20" width="16" height="20">
-              <path d="M1 1.1 1 15.2 4.9 11.7 7.85 18.3 10.15 17.15 7.15 10.65 12.45 10.45Z" />
+              <path d="M3.15 1.45c-.95-.1-1.7.75-1.35 1.65l.85 10.2c.08.5.62.75 1.05.45l1.7-1.55 2.25 5.35c.28.62 1.12.52 1.28-.16l.75-2.05c.12-.4-.12-.82-.52-.9l-2.15-.7 4.45-.6c.62-.08.84-.88.36-1.28L4.15 2.2c-.32-.28-.68-.7-1-.75z" />
             </svg>
             <span class="tag">Reader</span>
           </div>
           <div class="cursor" data-cursor="verifier" aria-hidden="true">
             <svg viewBox="0 0 16 20" width="16" height="20">
-              <path d="M1 1.1 1 15.2 4.9 11.7 7.85 18.3 10.15 17.15 7.15 10.65 12.45 10.45Z" />
+              <path d="M3.15 1.45c-.95-.1-1.7.75-1.35 1.65l.85 10.2c.08.5.62.75 1.05.45l1.7-1.55 2.25 5.35c.28.62 1.12.52 1.28-.16l.75-2.05c.12-.4-.12-.82-.52-.9l-2.15-.7 4.45-.6c.62-.08.84-.88.36-1.28L4.15 2.2c-.32-.28-.68-.7-1-.75z" />
             </svg>
             <span class="tag">Verifier</span>
           </div>
           <div class="cursor" data-cursor="writer" aria-hidden="true">
             <svg viewBox="0 0 16 20" width="16" height="20">
-              <path d="M1 1.1 1 15.2 4.9 11.7 7.85 18.3 10.15 17.15 7.15 10.65 12.45 10.45Z" />
+              <path d="M3.15 1.45c-.95-.1-1.7.75-1.35 1.65l.85 10.2c.08.5.62.75 1.05.45l1.7-1.55 2.25 5.35c.28.62 1.12.52 1.28-.16l.75-2.05c.12-.4-.12-.82-.52-.9l-2.15-.7 4.45-.6c.62-.08.84-.88.36-1.28L4.15 2.2c-.32-.28-.68-.7-1-.75z" />
             </svg>
             <span class="tag">Writer</span>
           </div>
@@ -116,21 +116,21 @@
 
         <ol class="roles">
           <li class="role" data-role="reader">
-            <span class="avatar" aria-hidden="true"><span class="dot"></span></span>
+            <span class="avatar" aria-hidden="true"><svg viewBox="0 0 16 20" width="13" height="16"><path d="M3.15 1.45c-.95-.1-1.7.75-1.35 1.65l.85 10.2c.08.5.62.75 1.05.45l1.7-1.55 2.25 5.35c.28.62 1.12.52 1.28-.16l.75-2.05c.12-.4-.12-.82-.52-.9l-2.15-.7 4.45-.6c.62-.08.84-.88.36-1.28L4.15 2.2c-.32-.28-.68-.7-1-.75z" /></svg></span>
             <span class="role-copy">
               <span class="role-top"><span class="role-name">Reader</span><span class="role-status">reading</span></span>
               <span class="role-job">Lifts every equation from the paper.</span>
             </span>
           </li>
           <li class="role" data-role="verifier">
-            <span class="avatar" aria-hidden="true"><span class="dot"></span></span>
+            <span class="avatar" aria-hidden="true"><svg viewBox="0 0 16 20" width="13" height="16"><path d="M3.15 1.45c-.95-.1-1.7.75-1.35 1.65l.85 10.2c.08.5.62.75 1.05.45l1.7-1.55 2.25 5.35c.28.62 1.12.52 1.28-.16l.75-2.05c.12-.4-.12-.82-.52-.9l-2.15-.7 4.45-.6c.62-.08.84-.88.36-1.28L4.15 2.2c-.32-.28-.68-.7-1-.75z" /></svg></span>
             <span class="role-copy">
               <span class="role-top"><span class="role-name">Verifier</span><span class="role-status">verifying</span></span>
-              <span class="role-job">Screens the step, then proves it in Lean.</span>
+              <span class="role-job">Screens the step, then refutes it in Lean.</span>
             </span>
           </li>
           <li class="role" data-role="writer">
-            <span class="avatar" aria-hidden="true"><span class="dot"></span></span>
+            <span class="avatar" aria-hidden="true"><svg viewBox="0 0 16 20" width="13" height="16"><path d="M3.15 1.45c-.95-.1-1.7.75-1.35 1.65l.85 10.2c.08.5.62.75 1.05.45l1.7-1.55 2.25 5.35c.28.62 1.12.52 1.28-.16l.75-2.05c.12-.4-.12-.82-.52-.9l-2.15-.7 4.45-.6c.62-.08.84-.88.36-1.28L4.15 2.2c-.32-.28-.68-.7-1-.75z" /></svg></span>
             <span class="role-copy">
               <span class="role-top"><span class="role-name">Writer</span><span class="role-status">writing</span></span>
               <span class="role-job">Notes the correction in the margin.</span>
@@ -170,7 +170,7 @@
                 <div class="math" data-tex="E=\tfrac{1}{2}mv^{2}+\tfrac{1}{2}kx^{2}"></div>
               </div>
             </div>
-            <p class="badge" data-part="badge" hidden>Proved in Lean</p>
+            <p class="badge" data-part="badge" hidden><svg class="check" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path d="M2.2 6.1 4.8 8.7 9.8 3.2" /></svg>Lean: refutation</p>
             <p class="also" data-part="also" hidden>
               One more. <span class="math" data-tex="\tau=b/m" data-display="inline"></span>
               is a rate, not a time. The decay time is
