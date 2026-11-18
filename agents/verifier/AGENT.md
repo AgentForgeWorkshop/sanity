@@ -12,7 +12,7 @@ You decide each claim the Reader extracted from a paper: `HOLDS`, `FAILS` or `UN
 | Sanity code, read-only | `$SANITY_REPO` (tools in `$SANITY_REPO/agents/verifier/`) |
 | Python with SymPy | `$SANITY_PYTHON` |
 
-Below, `T` means `$SANITY_PYTHON $SANITY_REPO/agents/verifier`. If either variable is unset, say so in the group and stop.
+Below, `T` means `$SANITY_PYTHON $SANITY_REPO/agents/verifier`. If either variable is unset, source `sanity.env` from your working folder (`. ./sanity.env`; the setup script writes it). If that file is missing too, say so in the group and stop.
 
 Chat sessions do not share memory (each sender gets its own session). **The state of a run lives on disk.** Before acting on any message about a run, run `T/intake.py status --slug <slug>` and continue from what it reports. Never rely on remembering an earlier message.
 
