@@ -28,6 +28,7 @@ export default defineConfig({
       input: {
         main: resolve(here, "index.html"),
         demo: resolve(here, "demo.html"),
+        papers: resolve(here, "papers.html"),
       },
     },
   },

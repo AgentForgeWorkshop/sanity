@@ -1,0 +1,143 @@
+{
+  "papers": [
+    {
+      "slug": "arxiv-2410-11128",
+      "title": "Black Holes and Thermogeometric Optimization",
+      "subject": "Astrophysics / General relativity",
+      "status": "checked",
+      "authors": [
+        "Vasil Avramov",
+        "Hristo Dimov",
+        "Miroslav Radomirov",
+        "Radoslav C. Rashkov",
+        "Tsvetan Vetsov"
+      ],
+      "source_url": "https://arxiv.org/abs/2410.11128v1",
+      "journal_ref": "European Journal of Physics C, vol: 85, issue: 587, (2025)",
+      "doi": "10.1140/epjc/s10052-025-14303-w",
+      "checked_at": "2026-11-18T22:38:34",
+      "counts": {
+        "holds": 5,
+        "fails": 1,
+        "unchecked": 2,
+        "error": 0
+      },
+      "segments": [
+        "UNCHECKED",
+        "UNCHECKED",
+        "HOLDS",
+        "FAILS",
+        "HOLDS",
+        "HOLDS",
+        "HOLDS",
+        "HOLDS"
+      ],
+      "flags": [
+        {
+          "claim": "4.4",
+          "line": 636,
+          "correction_latex": "\\Omega=\\frac{c r_{-}}{a(r_{+}+r_{-})}",
+          "corrected": true,
+          "crop": "arxiv-2410-11128/eq-4.4.webp",
+          "page": 17
+        }
+      ],
+      "tools": [
+        {
+          "name": "SymPy",
+          "logo": "sympy.svg"
+        },
+        {
+          "name": "Lean",
+          "logo": "lean.svg"
+        },
+        {
+          "name": "Python",
+          "logo": "python.svg"
+        }
+      ],
+      "judgement": "Eq. (4.4) in v1 fails.",
+      "telegram": {
+        "role": "writer",
+        "lines": [
+          "arxiv-2410-11128: Eq. (4.4) in v1 fails.",
+          "(4.4) FAILS — counterexample. Printed Ω is off by r_plus/r_minus. Corrected Ω = c r_-/(a(r_++r_-)) HOLDS (symbolic). Same replacement as the authors' arXiv v4 comment.",
+          "5 hold, 2 unchecked. Report: runs/arxiv-2410-11128/REPORT.md"
+        ]
+      },
+      "marks": [
+        {
+          "name": "arXiv",
+          "logo": "arxiv.svg",
+          "href": "https://arxiv.org/abs/2410.11128v1"
+        },
+        {
+          "name": "EPJC",
+          "logo": "epjc.png",
+          "href": "https://doi.org/10.1140/epjc/s10052-025-14303-w"
+        },
+        {
+          "name": "Springer",
+          "logo": "springer.svg",
+          "href": "https://doi.org/10.1140/epjc/s10052-025-14303-w"
+        }
+      ],
+      "preview": "arxiv-2410-11128/preview.webp"
+    },
+    {
+      "slug": "example-oscillator",
+      "title": "A spring, missing a half",
+      "subject": "Physics",
+      "status": "checked",
+      "example": true,
+      "checked_at": "2026-11-18T14:39:21",
+      "counts": {
+        "holds": 0,
+        "fails": 2,
+        "unchecked": 3,
+        "error": 0
+      },
+      "segments": [
+        "UNCHECKED",
+        "UNCHECKED",
+        "FAILS",
+        "FAILS",
+        "UNCHECKED"
+      ],
+      "flags": [
+        {
+          "claim": "3",
+          "line": 17,
+          "correction_latex": "E=\\tfrac{1}{2}mv^{2}+\\tfrac{1}{2}kx^{2}",
+          "corrected": true
+        },
+        {
+          "claim": "4",
+          "line": 22,
+          "correction_latex": "\\tau=2m/b",
+          "corrected": true
+        }
+      ],
+      "tools": [
+        {
+          "name": "SymPy",
+          "logo": "sympy.svg"
+        },
+        {
+          "name": "Python",
+          "logo": "python.svg"
+        }
+      ],
+      "judgement": "two confirmed flags.",
+      "telegram": {
+        "role": "writer",
+        "lines": [
+          "example-oscillator: two confirmed flags.",
+          "(3) FAILED — the missing 1/2 on k x^2 propagates. Corrected energy is VERIFIED.",
+          "(4) FAILED — tau = b/m is a units typo. Use 2m/b.",
+          "Report: runs/example-oscillator/REPORT.md"
+        ]
+      }
+    }
+  ]
+}
