@@ -66,10 +66,10 @@ def test_every_bot_loads_the_protocol_and_sets_the_loop_guard(role):
 
 
 @pytest.mark.parametrize("role", ROLES)
-def test_every_role_prompt_points_to_the_protocol_and_uses_no_reply(role):
+def test_every_role_prompt_points_to_the_protocol(role):
+    """Each role prompt refers to the shared skill; the rules themselves (NO_REPLY etc.) live there."""
     prompt = (REPO / "agents" / role / "AGENT.md").read_text(encoding="utf-8")
     assert "sanity-protocol" in prompt
-    assert "NO_REPLY" in prompt
 
 
 def test_configure_script_writes_the_same_wake_word_as_the_protocol():
