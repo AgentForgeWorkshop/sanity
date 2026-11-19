@@ -6,8 +6,8 @@
 #
 #   bash scripts/setup_verifier_docker.sh install     clone sanity, Python env with SymPy, scratch folder
 #   bash scripts/setup_verifier_docker.sh selftest    run the example through intake, verify_run and bundle
-#   bash scripts/setup_verifier_docker.sh configure   persona, skill, working folder, env vars, mention-only,
-#                                                     bot loop guard; restarts the container
+#   bash scripts/setup_verifier_docker.sh configure   Python env + scratch folder for the bot, then the shared
+#                                                     settings via scripts/configure_bot.sh verifier; restarts
 #   bash scripts/setup_verifier_docker.sh lean        install Lean 4 (elan + the toolchain in agents/verifier/lean/lean-toolchain)
 #   bash scripts/setup_verifier_docker.sh status      show what is installed and configured
 #   bash scripts/setup_verifier_docker.sh all         install + lean + selftest + configure
@@ -179,79 +179,38 @@ EOF
 }
 
 configure() {
-  say "configure: persona, skill, working folder, env vars (backups first)"
+  say "configure: Verifier-specific settings (Python env, scratch folder)"
   in_container <<'EOF'
 set -eu
 [ -f "$REPO/agents/verifier/AGENT.md" ] || { echo "run install first" >&2; exit 1; }
-stamp="$(date +%Y%m%d-%H%M%S)"
-for f in SOUL.md config.yaml .env; do
-  [ -f "$DATA/$f" ] && cp -p "$DATA/$f" "$DATA/$f.bak-$stamp"
-done
-echo "backups: $DATA/{SOUL.md,config.yaml,.env}.bak-$stamp"
-cp "$REPO/agents/verifier/AGENT.md" "$DATA/SOUL.md"
-echo "persona: SOUL.md <- agents/verifier/AGENT.md"
 touch "$DATA/.env"
 tmp="$(mktemp)"
-grep -v -E '^(SANITY_REPO|SANITY_PYTHON|TELEGRAM_REQUIRE_MENTION|TELEGRAM_MENTION_PATTERNS)=' "$DATA/.env" > "$tmp" || true
-printf 'SANITY_REPO=%s\nSANITY_PYTHON=%s\nTELEGRAM_REQUIRE_MENTION=true\n' "$REPO" "$PY" >> "$tmp"
-# Role wake word: a group message whose header says to=verifier counts as addressed to this
-# bot, whatever its @handle is. Bots address each other by role, not by handle.
-printf 'TELEGRAM_MENTION_PATTERNS=%s\n' 'sanity run=[^ ]+ .*to=verifier' >> "$tmp"
-# Where the bot posts start/progress/questions mid-run (hermes send). The gateway's own reply
-# goes out only at the end of a turn, and the Telegram home channel may be a private chat.
-group="${SANITY_GROUP:-}"
-if [ -z "$group" ]; then
-  ids="$(su -s /bin/sh "$RUN_AS" -c 'hermes send --list telegram' 2>/dev/null | sed -n 's/.*\[\(-[0-9][0-9]*\)\].*/\1/p' | sort -u)"
-  [ "$(printf '%s\n' "$ids" | grep -c .)" = 1 ] && group="telegram:$ids"
-fi
-grep -v '^SANITY_GROUP=' "$tmp" > "$tmp.2" || true; mv "$tmp.2" "$tmp"
-if [ -n "$group" ]; then
-  printf 'SANITY_GROUP=%s\n' "$group" >> "$tmp"
-  grep -v '^export SANITY_GROUP=' "$SCRATCH/sanity.env" > "$SCRATCH/sanity.env.new" || true
-  echo "export SANITY_GROUP=\"$group\"" >> "$SCRATCH/sanity.env.new"
-  cat "$SCRATCH/sanity.env.new" > "$SCRATCH/sanity.env"; rm -f "$SCRATCH/sanity.env.new"
-  echo "group: SANITY_GROUP set (hermes send target for start/progress/questions)"
-else
-  echo "group: NOT set. Several or no Telegram groups found; re-run with SANITY_GROUP=telegram:<group id>" >&2
-fi
-cat "$tmp" > "$DATA/.env"
-rm -f "$tmp"
-echo ".env: SANITY_REPO, SANITY_PYTHON set; TELEGRAM_REQUIRE_MENTION=true; wake word 'to=verifier' (TELEGRAM_MENTION_PATTERNS)"
+grep -v -E '^(SANITY_REPO|SANITY_PYTHON)=' "$DATA/.env" > "$tmp" || true
+printf 'SANITY_REPO=%s\nSANITY_PYTHON=%s\n' "$REPO" "$PY" >> "$tmp"
+cat "$tmp" > "$DATA/.env"; rm -f "$tmp"
+echo ".env: SANITY_REPO, SANITY_PYTHON set"
 EOF
   hermes_cmd config set terminal.cwd "$SCRATCH" >/dev/null
-  hermes_cmd config set skills.external_dirs "[\"$REPO/skills\"]" >/dev/null
-  hermes_cmd config set skills.auto_load '["verify-math", "sanity-protocol"]' >/dev/null
-  # Hermes' bot loop guard: by default a bot's reply to our message is not answered,
-  # which would drop the Reader's answers to the Verifier's questions.
-  hermes_cmd config set gateway.bot_loop_guard.bot_replies_expect_reply true >/dev/null
-  hermes_cmd config set gateway.bot_loop_guard.max_hops 8 >/dev/null
-  if [ -n "${APPROVER_ID:-}" ]; then
-    printf '%s' "$APPROVER_ID" | grep -Eq '^[0-9]{5,15}$' || die "APPROVER_ID must be a numeric Telegram user ID"
-    hermes_cmd config set approvals.approvers "[\"$APPROVER_ID\"]" >/dev/null
-    approvers="$(hermes_cmd config get approvals.approvers | tr -d "\n -'\"[]")"
-    [ "$approvers" = "$APPROVER_ID" ] || die "approvals.approvers was not set (got '$approvers'); edit config.yaml by hand"
-    echo "config: approvals.approvers = only $APPROVER_ID"
-  else
-    echo "config: approvals.approvers unchanged ($(hermes_cmd config get approvals.approvers | tr -d '\n ')); set APPROVER_ID=<your Telegram ID> to restrict" >&2
-  fi
-  local cwd dirs load
+  local cwd
   cwd="$(hermes_cmd config get terminal.cwd | tail -1)"
-  dirs="$(hermes_cmd config get skills.external_dirs | tr -d '\n ')"
-  load="$(hermes_cmd config get skills.auto_load | tr -d '\n ')"
-  echo "config: terminal.cwd=$cwd  skills.external_dirs=$dirs  skills.auto_load=$load"
   [ "$cwd" = "$SCRATCH" ] || die "terminal.cwd was not set (got '$cwd'); edit config.yaml by hand"
-  case "$dirs" in *"$REPO/skills"*) ;; *) die "skills.external_dirs was not set; edit config.yaml by hand" ;; esac
-  case "$load" in *verify-math*sanity-protocol*|*sanity-protocol*verify-math*) ;; *) die "skills.auto_load was not set (needs verify-math and sanity-protocol); edit config.yaml by hand" ;; esac
-  local expect hops
-  expect="$(hermes_cmd config get gateway.bot_loop_guard.bot_replies_expect_reply | tail -1 | tr -d "' \"")"
-  hops="$(hermes_cmd config get gateway.bot_loop_guard.max_hops | tail -1 | tr -d "' \"")"
-  echo "config: gateway.bot_loop_guard.bot_replies_expect_reply=$expect  max_hops=$hops"
-  case "$expect" in true|True) ;; *) die "bot_loop_guard.bot_replies_expect_reply was not set; edit config.yaml by hand" ;; esac
-  [ "$hops" = "8" ] || die "bot_loop_guard.max_hops was not set (got '$hops'); edit config.yaml by hand"
-  allowed_report
-  # Hermes freezes the system prompt per chat session; without this, running sessions keep
-  # the old persona and skill. History is kept; each session rebuilds once on its next turn.
-  docker exec -u "$RUN_AS" "$CONTAINER" hermes sessions refresh-prompts 2>&1 | grep -v -i pnpm | tail -1 || true
+  echo "config: terminal.cwd=$cwd"
+
+  # Everything every Sanity bot needs (persona, sanity-protocol, wake word, group, loop
+  # guard, approvals, refresh-prompts) is shared with the Reader and Writer setup.
+  say "configure: shared bot settings (scripts/configure_bot.sh verifier)"
+  HERMES_CONTAINER="$CONTAINER" SANITY_REPO="$REPO" NO_RESTART=1 \
+    bash "$(dirname "$0")/configure_bot.sh" verifier || true
+
+  # The bot also reads SANITY_GROUP from sanity.env when its environment lacks it.
+  in_container <<'EOF'
+set -eu
+g="$(sed -n 's/^SANITY_GROUP=//p' "$DATA/.env" | tail -1)"
+[ -n "$g" ] || exit 0
+grep -v '^export SANITY_GROUP=' "$SCRATCH/sanity.env" > "$SCRATCH/sanity.env.new" || true
+echo "export SANITY_GROUP=\"$g\"" >> "$SCRATCH/sanity.env.new"
+cat "$SCRATCH/sanity.env.new" > "$SCRATCH/sanity.env"; rm -f "$SCRATCH/sanity.env.new"
+EOF
   say "restarting $CONTAINER so the gateway loads the new persona and config"
   docker restart "$CONTAINER" >/dev/null
   sleep 5

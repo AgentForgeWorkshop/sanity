@@ -70,3 +70,10 @@ def test_every_role_prompt_points_to_the_protocol_and_uses_no_reply(role):
     prompt = (REPO / "agents" / role / "AGENT.md").read_text(encoding="utf-8")
     assert "sanity-protocol" in prompt
     assert "NO_REPLY" in prompt
+
+
+def test_configure_script_writes_the_same_wake_word_as_the_protocol():
+    script = (REPO / "scripts" / "configure_bot.sh").read_text(encoding="utf-8")
+    written = re.search(r'TELEGRAM_MENTION_PATTERNS=(sanity run=[^"]+to=)\$ROLE', script).group(1)
+    for role in ROLES:
+        assert wake_word(role).pattern == written + role

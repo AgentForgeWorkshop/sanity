@@ -37,6 +37,13 @@ Follow [docs/telegram.md](telegram.md). For the Verifier specifically:
    bot IDs, the gateway blocks handoffs ("Blocked unauthorized user" in the log).
 3. The bot is in the group, and was re-added after changing the privacy setting.
 
+## Shared bot settings
+
+`configure` sets the Verifier-specific parts (Python environment, scratch folder)
+and then runs `scripts/configure_bot.sh verifier`, the same script the Reader and
+Writer bots use, for everything every Sanity bot needs. Check any bot with
+`bash scripts/configure_bot.sh check <role>`.
+
 ## Addressing by role (all three bots)
 
 Bots never need each other's @handles. Every machine message names its target role

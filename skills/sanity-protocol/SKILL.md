@@ -118,6 +118,10 @@ Also:
 
 ## 6. Hermes settings every Sanity bot needs
 
+`scripts/configure_bot.sh <reader|writer|verifier>` sets all of this except the
+@BotFather switch and the list of allowed IDs, and `scripts/configure_bot.sh check
+<role>` reports what is missing.
+
 | Setting | Value | Why |
 |---|---|---|
 | `TELEGRAM_REQUIRE_MENTION` (`.env`) | `true` | otherwise the bot answers every group message |
