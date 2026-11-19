@@ -65,6 +65,14 @@ def test_unsafe_or_unsupported_syntax_is_rejected(text):
         build_expression(text, {"symbols": {"x": []}})
 
 
+def test_special_functions_common_in_physics_are_allowed():
+    expr = build_expression("zeta(3)*gamma(3) + polylog(2, z) + Sum(1/n**2, (n, 1, oo))",
+                            {"symbols": {"z": [], "n": ["integer", "positive"]}})
+    assert expr.has(sp.zeta) and expr.has(sp.polylog) and expr.has(sp.Sum)
+    claim = parse_claim(entry("N_ex", "zeta(3)*(kT/hw)**3", {"N_ex": ["positive"], "kT": ["positive"], "hw": ["positive"]}))
+    assert claim.rhs.has(sp.zeta)
+
+
 def test_undeclared_symbol_is_rejected():
     with pytest.raises(ClaimError, match="undeclared name 'y'"):
         build_expression("x + y", {"symbols": {"x": []}})
