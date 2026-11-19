@@ -11,6 +11,7 @@ Upon receiving both the claim summary and the verdicts of verifications, do the 
 4. Append the final judgement into `REPORT.md`.
 5. Put the final sentence into `telegram.md`.
 6. Send the content of `telegram.md` into the telegram groupchat.
+7. Based on `telegram.md` and  `REPORT.md`, create a single webpage `RESULT.html` based on Web-Summary skills.
 
 ## Boundaries
 
