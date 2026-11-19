@@ -28,8 +28,14 @@ SCHEMA = REPO / "docs" / "schemas" / "equations.schema.json"
 # SymPy names a claim may call or reference without declaring them.
 ALLOWED_FUNCTIONS = {
     "sqrt", "exp", "log", "sin", "cos", "tan", "asin", "acos", "atan", "atan2",
+    "sec", "csc", "cot", "asinh", "acosh", "atanh",
     "sinh", "cosh", "tanh", "Abs", "sign", "re", "im", "conjugate",
-    "Derivative", "Integral", "Rational", "besselj", "bessely", "gamma",
+    "Derivative", "Integral", "Sum", "Product", "Rational",
+    "Min", "Max", "floor", "ceiling", "Heaviside", "DiracDelta", "KroneckerDelta",
+    # special functions common in physics papers
+    "gamma", "factorial", "binomial", "zeta", "polylog", "polygamma", "digamma",
+    "erf", "erfc", "Ei", "besselj", "bessely", "besseli", "besselk", "airyai", "airybi",
+    "legendre", "assoc_legendre", "hermite", "laguerre", "elliptic_k", "elliptic_e",
 }
 ALLOWED_CONSTANTS = {"pi", "E", "I", "oo"}
 ALLOWED_NODES = (

@@ -19,6 +19,8 @@
 #   SANITY_REF         branch or tag to check out   (default: main)
 #   DATA               Hermes data dir in container (default: /opt/data)
 #   HERMES_USER        user Hermes runs as          (default: owner of $DATA, e.g. hermes)
+#   APPROVER_ID        your Telegram user ID: only you may approve the bot's risky commands
+#                      (configure sets approvals.approvers; default '*' lets anyone allowed approve)
 #   SANITY_GROUP       hermes send target for the Sanity group, e.g. telegram:-100123
 #                      (default: the only Telegram group in `hermes send --list telegram`)
 #
@@ -223,6 +225,15 @@ EOF
   # which would drop the Reader's answers to the Verifier's questions.
   hermes_cmd config set gateway.bot_loop_guard.bot_replies_expect_reply true >/dev/null
   hermes_cmd config set gateway.bot_loop_guard.max_hops 8 >/dev/null
+  if [ -n "${APPROVER_ID:-}" ]; then
+    printf '%s' "$APPROVER_ID" | grep -Eq '^[0-9]{5,15}$' || die "APPROVER_ID must be a numeric Telegram user ID"
+    hermes_cmd config set approvals.approvers "[\"$APPROVER_ID\"]" >/dev/null
+    approvers="$(hermes_cmd config get approvals.approvers | tr -d "\n -'\"[]")"
+    [ "$approvers" = "$APPROVER_ID" ] || die "approvals.approvers was not set (got '$approvers'); edit config.yaml by hand"
+    echo "config: approvals.approvers = only $APPROVER_ID"
+  else
+    echo "config: approvals.approvers unchanged ($(hermes_cmd config get approvals.approvers | tr -d '\n ')); set APPROVER_ID=<your Telegram ID> to restrict" >&2
+  fi
   local cwd dirs load
   cwd="$(hermes_cmd config get terminal.cwd | tail -1)"
   dirs="$(hermes_cmd config get skills.external_dirs | tr -d '\n ')"
@@ -276,6 +287,7 @@ EOF
   echo "config: skills.external_dirs=$(hermes_cmd config get skills.external_dirs | tr -d '\n ')"
   echo "config: skills.auto_load=$(hermes_cmd config get skills.auto_load | tr -d '\n ')"
   echo "config: gateway.bot_loop_guard.bot_replies_expect_reply=$(hermes_cmd config get gateway.bot_loop_guard.bot_replies_expect_reply | tail -1)  max_hops=$(hermes_cmd config get gateway.bot_loop_guard.max_hops | tail -1)"
+  echo "config: approvals.approvers=$(hermes_cmd config get approvals.approvers | tr -d '\n ')"
   in_container <<'EOF2'
 grep -q '^TELEGRAM_REQUIRE_MENTION=true' "$DATA/.env" 2>/dev/null && echo ".env: TELEGRAM_REQUIRE_MENTION=true" || echo ".env: TELEGRAM_REQUIRE_MENTION not true (the bot answers every group message)"
 grep -q '^TELEGRAM_MENTION_PATTERNS=.*to=verifier' "$DATA/.env" 2>/dev/null && echo ".env: wake word to=verifier set" || echo ".env: wake word to=verifier MISSING (run configure)"

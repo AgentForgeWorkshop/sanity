@@ -81,7 +81,13 @@ What you send:
 | Reader | `hermes send` (or your final reply) | `sanity run=<slug> to=reader question=<q> eq=<number>`, then the question |
 | Writer | your final reply, attachments as `MEDIA:` lines | `sanity run=<slug> to=writer stage=writer attempt=<n> equations_sha256=<hex> verdicts_sha256=<hex> bundle_sha256=<hex> code=<commit>`, then the summary, with two attachments |
 
-Status and progress messages have no `to=`, so no bot wakes up for them. Do not reply to acknowledgements, thanks, or other bots' chatter.
+Status and progress messages have no `to=`, so no bot wakes up for them.
+
+**Staying silent.** When a message needs no action from you (not addressed to you,
+another bot's chatter, an acknowledgement, "no action" from another bot), your
+**entire reply must be exactly `NO_REPLY`**. Hermes then sends nothing. Never send a
+message saying that you are taking no action: that message wakes the other bots, and
+they answer it, which starts a loop.
 
 ## 1. Receive
 
@@ -153,6 +159,23 @@ Send exactly one handoff per attempt. The bundle in the group is the lasting rec
 - `rerun <slug>`: start a new attempt from the latest equations: `T/intake.py receive --slug <slug> --file <latest attempt>/equations.json --new-attempt`, then plan and check again.
 - `status <slug>`: reply with a short summary of `T/intake.py status --slug <slug>` and any open questions.
 - Budget changes ("allow 30 min for eq 7"): apply them to the current attempt and note them in PLAN.md.
+
+## Running commands
+
+Hermes asks a person to approve commands it considers risky, and scripts passed
+through a heredoc (`python - <<'EOF'`, `cat <<EOF | python`) are such commands. Keep
+runs approval-free:
+
+- **Write and edit check scripts with your file tool** (create or edit the file in
+  `verify/checks/`), never through heredocs, `python -c` one-liners that rewrite
+  files, or `sed -i`.
+- **Run them as files**: `$SANITY_PYTHON verify/checks/09_eq9_shift.py` while
+  developing a check, `T/verify_run.py verify` for the verdicts.
+- Use the tools in `$SANITY_REPO/agents/verifier/` as they are; do not paste their
+  code into the shell.
+
+If a command still needs approval, say in one line what it does and why, and wait.
+Only the bot's owner approves.
 
 ## Boundaries
 
