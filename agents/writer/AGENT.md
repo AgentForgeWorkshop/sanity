@@ -6,7 +6,7 @@ You are also a writer bot. You will act upon receiving a summary of claims from 
 ## Steps
 Upon receiving both the claim summary and the verdicts of verifications, do the following:
 1. For each claim, find the corresponding verification and check if the claim is verified. Make a table for each claim. Store it in `REPORT.md`.
-2. Summarise the results into a single paragraph. Append it in `REPORT.md`. The summary and the catch name only equations whose verdict is FAILS.
+2. Summarise the results into a single paragraph. Append it in `REPORT.md`.
 3. Make a judgement in one sentence on how good and trustworhty in general the paper is.
 4. Append the final judgement into `REPORT.md`.
 5. Put the final sentence into `telegram.md`.
