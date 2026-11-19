@@ -63,9 +63,9 @@ flowchart LR
   <img src="docs/assets/handoff.gif" alt="A message moves from Reader to Verifier to Writer. A bar fills, then reads FAILS." width="720">
 </p>
 
-The group is the handoff. Every message names its target with `to=<role>`, and files travel as attachments. A status line has no `to=`, so it wakes no bot. The Reader sends `equations.json`. The Verifier sends `verdicts.json` and the evidence bundle. SymPy checks a claim exactly, by asymptotics, or by sampling. Lean is extra evidence for a few central exact claims, always after SymPy, and only when the claim can be stated. A Lean `proof` or `refutation` outranks a SymPy result for the same claim. The Verifier may ask the Reader a question. The Writer does not get a vote on the verdict.
+The group is the handoff. Every message names its target with `to=<role>`, and files travel as attachments. A status line has no `to=`, so it wakes no bot. The Reader sends `equations.json`. The Verifier sends `verdicts.json` and the evidence bundle. SymPy checks a claim exactly, by asymptotics, or by sampling. Lean is extra evidence for a few central exact claims, always after SymPy, and only when the claim can be stated. A Lean `proof` or `refutation` outranks a SymPy result for the same claim. The Verifier may ask the Reader a question. The Writer does not get a vote on the verdict. The Writer then sends one zip `to=publisher`. The publisher daemon is the only process that commits. The LLM bots never hold GitHub credentials.
 
-The square in the picture is a message on that group. The bar is a verdict. A verdict counts only if a check script printed it. `publish_run.py` writes the run back to the live index, <https://ilkhamfy.github.io/sanity/papers.html>.
+The square in the picture is a message on that group. The bar is a verdict. A verdict counts only if a check script printed it. `publish_run.py` writes the run back to the live index, <https://ilkhamfy.github.io/sanity/papers.html>. The daemon that runs it is [docs/setup-publisher.md](docs/setup-publisher.md).
 
 ## Eq. (4.4)
 
@@ -95,7 +95,7 @@ simplify(corrected - c*a/(r_plus**2+a**2)) == 0 for a**2=r_plus*r_minus
 
 ## Self-evolving
 
-[`scripts/publish_run.py`](scripts/publish_run.py) publishes each new run on the live papers index, <https://ilkhamfy.github.io/sanity/papers.html>. It copies `equations.json`, `verdicts.json`, and any `REPORT.md` or `report.html`, updates that paper's row, and appends to `activity.json`. Running it again updates the same row. Verdicts still come only from check scripts.
+[`scripts/publish_run.py`](scripts/publish_run.py) publishes each new run on the live papers index, <https://ilkhamfy.github.io/sanity/papers.html>. It copies `equations.json`, `verdicts.json`, and any `REPORT.md` or `report.html`, updates that paper's row, and appends to `activity.json`. Running it again updates the same row. Verdicts still come only from check scripts. The Telegram daemon is `scripts/publisher.py`. It is the only process with a GitHub key, and it pushes branch `data`. Setup: [docs/setup-publisher.md](docs/setup-publisher.md).
 
 ## Roles
 
@@ -103,9 +103,9 @@ simplify(corrected - c*a/(r_plus**2+a**2)) == 0 for a**2=r_plus*r_minus
 | --- | --- | --- |
 | Reader | `equations.json`, to the Verifier | check, judge, or edit the paper |
 | Verifier | `verdicts.json` and an evidence bundle (checks, `PLAN.md`, `RESULTS.md`), to the Writer | open the paper, edit the extraction, or write the report |
-| Writer | `REPORT.md` and its summary, to the group (`status=done`) | change a verdict, or check the math itself |
+| Writer | `REPORT.md` and its summary, to the group (`status=done`), then one zip `to=publisher` | change a verdict, check the math itself, or push to GitHub |
 
-Role prompts: `agents/reader/AGENT.md`, `agents/verifier/AGENT.md`, `agents/writer/AGENT.md`. The Writer prompt also asks for `RESULT.html`, built from `REPORT.md` and `telegram.md`.
+Role prompts: `agents/reader/AGENT.md`, `agents/verifier/AGENT.md`, `agents/writer/AGENT.md`. The Writer prompt also asks for `RESULT.html`, built from `REPORT.md` and `telegram.md`, then one zip to the publisher.
 
 ## Repository
 
@@ -116,7 +116,7 @@ agents/    reader, verifier (SymPy + Lean), writer
 docs/      Telegram, handoff, setup, schemas
 hermes/    example profile per role, no tokens
 runs/      worked examples, used by the tests
-scripts/   publish_run, configure_bot, setup_verifier_docker, setup_bot
+scripts/   fetch_paper, publisher, guard, publish_run, configure_bot, setup_verifier_docker, setup_bot
 skills/    verify-math, sanity-protocol
 ```
 
