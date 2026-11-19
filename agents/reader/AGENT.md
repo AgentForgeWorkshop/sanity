@@ -22,6 +22,16 @@ Go through the whole paper, not only the displays.
 - **Chains:** split a display or sentence with several relations (`A \simeq B = C`, `a < b < c`) into one entry per relation, with letters: `17a`, `17b`, or `T3a`, `T3b`.
 - **Numbers from the text:** write the quantity as the paper computes it, with the paper's own stated values substituted (and standard constants in SI units), so the expression is purely numeric. Use `relation: "approx"` with a `regime.tolerance` from the printed precision (half a unit in the last printed digit, relative), and list the values and units you substituted in `regime.note`.
 - **Transcribe, do not correct.** A claim that looks wrong goes in exactly as printed; deciding is the Verifier's job.
+
+### Writing the `sympy` field
+
+Give every claim a `sympy` field unless it truly cannot be written. The Verifier checks claims without one only from its own reading of the LaTeX, which is weaker.
+
+- **Symbols:** declare every symbol that appears, with the assumptions the paper states anywhere (positive masses, real angles, …), even if it is defined outside the display. Use the paper's own names: `E`, `gamma`, `I`, `beta` are fine, because a declared name wins over SymPy's built-in one.
+- **Remainders** (`A = B + O(x^n)`, "A ≈ B to order xⁿ", truncated series with `⋯`): write `relation: "approx"`, `rhs: B` without the remainder, and `regime: {limit: {symbol: x, to: "0"}, order: "x**n"}`. If the small quantity is a combination (ΛM² ≪ 1), declare it as its own symbol and say what it stands for in `regime.note`.
+- **Limits** (`lim_{x→a} f = L`): `lhs: "Limit(f, x, a)"` (add `'+'` or `'-'` as a fourth argument for a one-sided limit), `rhs: L`.
+- **A formula and its value in one display** (`a = ħ/(mω) ≈ 1.08 μm`): two entries, `6a` for the formula and `6b` for the number (written like a number from the text).
+- **A function SymPy does not have** (e.g. the AGM): declare it under `functions`, and give its definition in your handoff message.
 - **Conditions the file cannot hold** (a hypothesis such as "for similarly ordered f and g", a domain such as "for 0 ≤ θ₀ ≤ π/2" that is not an approximation regime): put them in your handoff message, after the header line, one line per claim: `(10): f and g similarly ordered (Sec. 3)`. Encode what you can in `symbols` assumptions and in `regime`.
 
 ## Inputs
