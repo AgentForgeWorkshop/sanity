@@ -10,6 +10,7 @@
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/github/license/IlkhamFY/sanity?style=flat-square&color=6e675f"></a>
   <a href="https://ilkhamfy.github.io/sanity/"><img alt="live site" src="https://img.shields.io/badge/site-live-6e675f?style=flat-square"></a>
   <a href="https://ilkhamfy.github.io/sanity/demo.html"><img alt="demo" src="https://img.shields.io/badge/demo-live-6e675f?style=flat-square"></a>
+  <a href="https://ilkhamfy.github.io/sanity/papers.html"><img alt="Checked papers" src="https://img.shields.io/badge/Checked%20papers-live-6e675f?style=flat-square"></a>
   <a href="https://arxiv.org/abs/2410.11128"><img alt="arXiv 2410.11128" src="https://img.shields.io/badge/arXiv-2410.11128-6e675f?style=flat-square"></a>
 </p>
 
@@ -52,16 +53,11 @@ The whole message protocol is the shared skill [skills/sanity-protocol/SKILL.md]
 ## Architecture
 
 ```mermaid
-flowchart TD
-  paper["PDF or LaTeX, from a person"] --> reader["Reader"]
-  reader -->|"to=verifier"| verifier["Verifier, SymPy + Lean"]
-  verifier --> verdicts["verdicts.json"]
-  verdicts -->|"to=writer"| writer["Writer"]
-  writer -->|"REPORT.md"| group["Telegram group"]
-  group --> people["Three people"]
-  writer --> publish["publish_run.py"]
-  publish --> site["Live site"]
-  publish --> activity["activity.json"]
+flowchart LR
+  paper["Paper"] --> reader["Reader"] --> verifier["SymPy + Lean"] --> writer["Writer"] --> publish["publish_run.py"] --> papers["papers.html"]
+  reader --- group["Telegram group"]
+  verifier --- group
+  writer --- group
 ```
 
 <p align="center">
@@ -70,7 +66,7 @@ flowchart TD
 
 The group is the handoff. Every message names its target with `to=<role>`, and files travel as attachments. A status line has no `to=`, so it wakes no bot. The Reader sends `equations.json`. The Verifier sends `verdicts.json` and the evidence bundle. SymPy checks a claim exactly, by asymptotics, or by sampling. Lean is extra evidence for a few central exact claims, always after SymPy, and only when the claim can be stated. A Lean `proof` or `refutation` outranks a SymPy result for the same claim. The Verifier may ask the Reader a question. The Writer does not get a vote on the verdict.
 
-The square in the picture is a message on that group. The bar is a verdict. A verdict counts only if a check script printed it. `publish_run.py` is the loop back to the site. It is in [pull request #20](https://github.com/IlkhamFY/sanity/pull/20), not on `main` yet.
+The square in the picture is a message on that group. The bar is a verdict. A verdict counts only if a check script printed it. `publish_run.py` writes the run back to the live index, <https://ilkhamfy.github.io/sanity/papers.html>.
 
 ## Eq. (4.4)
 
@@ -100,9 +96,7 @@ simplify(corrected - c*a/(r_plus**2+a**2)) == 0 for a**2=r_plus*r_minus
 
 ## Self-evolving
 
-[`scripts/publish_run.py`](https://github.com/IlkhamFY/sanity/blob/cursor/papers-index-3e17/scripts/publish_run.py) publishes a run into the public papers index. It copies the equations, the verdicts, and the report, updates that paper's row, and appends to `activity.json`. Running it again updates the same row. Verdicts in the row still come only from check scripts.
-
-The script is [pull request #20](https://github.com/IlkhamFY/sanity/pull/20). It is not merged yet. Until it is, the live site is the front page: <https://ilkhamfy.github.io/sanity/>.
+[`scripts/publish_run.py`](scripts/publish_run.py) publishes each new run on the live papers index, <https://ilkhamfy.github.io/sanity/papers.html>. It copies `equations.json`, `verdicts.json`, and any `REPORT.md` or `report.html`, updates that paper's row, and appends to `activity.json`. Running it again updates the same row. Verdicts still come only from check scripts.
 
 ## Roles
 
@@ -123,7 +117,7 @@ agents/    reader, verifier (SymPy + Lean), writer
 docs/      Telegram, handoff, setup, schemas
 hermes/    example profile per role, no tokens
 runs/      worked examples, used by the tests
-scripts/   configure_bot (any bot), setup_verifier_docker, setup_bot
+scripts/   publish_run, configure_bot, setup_verifier_docker, setup_bot
 skills/    verify-math, sanity-protocol
 ```
 
@@ -152,7 +146,7 @@ A finished run becomes a row on the public index. The command copies `equations.
 python3 scripts/publish_run.py runs/<slug> --subject "Physics"
 ```
 
-While the bots are still working, one line is enough: `python3 scripts/publish_run.py --event --slug <slug> --role verifier --message "Eq. (4.4) FAILS"`. The index is [site/papers.html](site/papers.html).
+While the bots are still working, one line is enough: `python3 scripts/publish_run.py --event --slug <slug> --role verifier --message "Eq. (4.4) FAILS"`. The index is live at <https://ilkhamfy.github.io/sanity/papers.html> ([site/papers.html](site/papers.html)).
 
 From the repository root, install the Verifier's dependencies and run the tests:
 
