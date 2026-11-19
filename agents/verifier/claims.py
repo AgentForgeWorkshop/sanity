@@ -30,7 +30,7 @@ ALLOWED_FUNCTIONS = {
     "sqrt", "exp", "log", "sin", "cos", "tan", "asin", "acos", "atan", "atan2",
     "sec", "csc", "cot", "asinh", "acosh", "atanh",
     "sinh", "cosh", "tanh", "Abs", "sign", "re", "im", "conjugate",
-    "Derivative", "Integral", "Sum", "Product", "Rational",
+    "Derivative", "Integral", "Sum", "Product", "Rational", "Limit", "O",
     "Min", "Max", "floor", "ceiling", "Heaviside", "DiracDelta", "KroneckerDelta",
     # special functions common in physics papers
     "gamma", "factorial", "binomial", "zeta", "polylog", "polygamma", "digamma",
@@ -43,6 +43,7 @@ ALLOWED_NODES = (
     ast.Constant, ast.Tuple,
     ast.Add, ast.Sub, ast.Mult, ast.Div, ast.Pow, ast.USub, ast.UAdd,
 )
+LIMIT_DIRECTIONS = {"+", "-", "+-"}  # the only strings allowed: Limit's 4th argument
 RELATIONS = {"==": sp.Eq, "<": sp.Lt, "<=": sp.Le, ">": sp.Gt, ">=": sp.Ge}
 APPROXIMATE = {"approx", "sim"}
 LIMIT_POINTS = {"0": sp.Integer(0), "oo": sp.oo, "-oo": -sp.oo}
@@ -116,11 +117,16 @@ def check_expression(text: str, names: set[str]) -> None:
         tree = ast.parse(text, mode="eval")
     except SyntaxError as exc:
         raise ClaimError(f"not an expression: {text!r} ({exc.msg})") from None
+    directions = {
+        id(node.args[3]) for node in ast.walk(tree)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "Limit"
+        and len(node.args) == 4 and isinstance(node.args[3], ast.Constant) and node.args[3].value in LIMIT_DIRECTIONS
+    }
     for node in ast.walk(tree):
         if not isinstance(node, ALLOWED_NODES):
             raise ClaimError(f"disallowed syntax {type(node).__name__} in {text!r}")
-        if isinstance(node, ast.Constant) and not isinstance(node.value, (int, float)):
-            raise ClaimError(f"only numeric literals are allowed in {text!r}")
+        if isinstance(node, ast.Constant) and not isinstance(node.value, (int, float)) and id(node) not in directions:
+            raise ClaimError(f"only numeric literals are allowed in {text!r} (and '+'/'-' as Limit's direction)")
         if isinstance(node, ast.Call):
             if not isinstance(node.func, ast.Name):
                 raise ClaimError(f"only plain function names may be called in {text!r}")
@@ -140,9 +146,11 @@ def _namespace(spec: dict) -> tuple[dict, dict[str, sp.Symbol]]:
     overlap = symbols.keys() & functions.keys()
     if overlap:
         raise ClaimError(f"declared as both symbol and function: {sorted(overlap)}")
-    local = {**symbols, **functions}
-    for name in ALLOWED_FUNCTIONS | ALLOWED_CONSTANTS:
-        local[name] = getattr(sp, name)
+    # Declared names win over SymPy's: a paper's energy E, adiabatic index gamma or
+    # current I is a symbol, not Euler's number, the Gamma function or the imaginary unit.
+    local = {name: getattr(sp, name) for name in ALLOWED_FUNCTIONS | ALLOWED_CONSTANTS}
+    local.update(symbols)
+    local.update(functions)
     return local, symbols
 
 
@@ -152,7 +160,10 @@ def build_expression(text: str, spec: dict) -> sp.Expr:
     check_expression(text, declared)
     # The AST check above is the guard. parse_expr's default globals are kept
     # because its number and symbol transformations need them.
-    return parse_expr(text, local_dict=local, evaluate=False)
+    try:
+        return parse_expr(text, local_dict=local, evaluate=False)
+    except Exception as exc:  # SymPy raises many types (TypeError, SympifyError, ...)
+        raise ClaimError(f"cannot build {text!r}: {type(exc).__name__}: {str(exc)[:120]}") from None
 
 
 def parse_regime(spec: dict, symbols: dict[str, sp.Symbol]) -> Regime | None:

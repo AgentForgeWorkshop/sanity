@@ -135,3 +135,35 @@ def test_cli_lists_claims(capsys):
     assert main([str(SPECIMEN)]) == 0
     out = capsys.readouterr().out
     assert "Eq(E, " in out and "line 17" in out
+
+
+@pytest.mark.parametrize("name, builtin", [("E", sp.E), ("gamma", sp.gamma), ("I", sp.I), ("pi", sp.pi), ("O", sp.O)])
+def test_declared_symbols_win_over_sympy_names(name, builtin):
+    expr = build_expression(f"2*{name}", {"symbols": {name: ["positive"]}})
+    assert expr.free_symbols == {sp.Symbol(name, positive=True)}
+    assert not expr.has(builtin) or name == "O"
+
+
+def test_undeclared_sympy_names_keep_their_meaning():
+    assert build_expression("E", {"symbols": {}}) == sp.E
+    assert build_expression("gamma(3)", {"symbols": {}}) == sp.gamma(3)
+
+
+def test_limit_and_order_terms():
+    limit = build_expression("Limit(sin(x)/x, x, 0, '+')", {"symbols": {"x": ["real"]}})
+    assert isinstance(limit, sp.Limit) and limit.doit() == 1
+    series = build_expression("1 + x/2 + O(x**2)", {"symbols": {"x": ["positive"]}})
+    assert series.has(sp.Order)
+    claim = parse_claim(entry("L", "Limit(n*sin(1/n), n, oo)", {"L": ["real"], "n": ["positive"]}))
+    assert sp.simplify(claim.rhs.doit() - 1) == 0
+
+
+@pytest.mark.parametrize("text", ["Limit(x, x, 0, 'evil')", "sin('+')", "x + '+'"])
+def test_strings_only_as_limit_direction(text):
+    with pytest.raises(ClaimError, match="only numeric literals"):
+        build_expression(text, {"symbols": {"x": []}})
+
+
+def test_sympy_errors_become_claim_errors():
+    with pytest.raises(ClaimError, match="cannot build"):
+        build_expression("gamma(3)", {"symbols": {"gamma": []}})  # a declared symbol cannot be called
