@@ -6,7 +6,7 @@ It runs on Ilkham's Windows host, in its own clone, or in a container of its own
 
 Commits are authored `Ilkham Yabbarov <ilkhamfy@gmail.com>` with message `site`. The push goes to branch `data` and is never a force push. `main` stays the reviewed code branch. Before each commit the daemon merges `origin/main` into `data`, so a code change on `main` reaches the live site on the next publish. Until `data` exists, GitHub Pages still deploys `main`. After `data` exists, Pages deploys `data` only, which keeps a later push to `main` from wiping published papers.
 
-The same zip twice does not make a second commit. A bundle that fails the guard is not committed. The group reply is `published <slug> -> <url>` or the validation error.
+The same zip twice does not make a second commit. A bundle that fails the guard is not committed. The reply goes back as a reply to the Writer's zip: `sanity run=<slug> to=writer status=published url=<url>` or `sanity run=<slug> to=writer status=error` with the validation error on the next line, so the Writer's wake word starts its next turn.
 
 ## 1. Deploy key
 

@@ -117,3 +117,13 @@ def test_configure_script_writes_the_same_wake_word_as_the_protocol():
     written = re.search(r'TELEGRAM_MENTION_PATTERNS=(sanity run=[^"]+to=)\$ROLE', script).group(1)
     for role in ROLES:
         assert wake_word(role).pattern == written + role
+
+
+def test_publisher_accepts_the_protocol_headers_meant_for_it():
+    from publisher import parse_header
+
+    publisher_headers = [h for h in table_headers() if "to=publisher" in h]
+    assert len(publisher_headers) == 2  # messages 11 and 12
+    for header in publisher_headers:
+        parsed = parse_header(header.replace("<slug>", "example-oscillator"))
+        assert parsed is not None and parsed["stage"] in {"publish", "event"}, header

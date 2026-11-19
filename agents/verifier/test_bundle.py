@@ -170,3 +170,12 @@ def test_verify_needs_only_the_standard_library(tmp_path):
     out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
     assert out.returncode == 0, out.stderr
     assert out.stdout.strip() == "example-oscillator"
+
+
+def test_meta_json_travels_in_the_bundle(tmp_path):
+    folder = finished_attempt(tmp_path)
+    (folder / "meta.json").write_text('{"slug": "example-oscillator"}', encoding="utf-8")
+    from verify_run import main as rerun
+    rerun([str(folder / "verify")])
+    path, sha = build(folder)
+    assert "meta.json" in {entry["path"] for entry in verify(path, sha)["files"]}

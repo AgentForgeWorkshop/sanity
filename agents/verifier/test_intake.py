@@ -136,3 +136,58 @@ def test_new_attempt_can_carry_checks_plan_and_conversation(tmp_path):
     assert not (two / "verify" / "verdicts.json").exists()
     plain = receive(scratch, "toy", first, new_attempt=True)
     assert plain.attempt == 3 and not any((scratch / "toy" / "3" / "verify" / "checks").iterdir())
+
+
+def example_meta(slug="toy"):
+    return {"title": "Toy", "authors": [], "abstract": "", "arxiv_id": None, "version": None,
+            "primary_category": None, "doi": None, "journal_ref": None, "fetched_at": None,
+            "slug": slug, "subject": "Examples", "example": True}
+
+
+def reader_zip(path, equations, meta=None, extra=None):
+    import zipfile
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr("equations.json", json.dumps(equations))
+        if meta is not None:
+            archive.writestr("meta.json", json.dumps(meta))
+        for name, data in (extra or {}).items():
+            archive.writestr(name, data)
+    return path
+
+
+def test_reader_zip_brings_meta_json_along(tmp_path):
+    scratch = tmp_path / "s"
+    eq = toy()
+    eq_bytes = json.dumps(eq).encode()
+    got = receive(scratch, "toy", reader_zip(tmp_path / "toy.zip", eq, example_meta()),
+                  expected_sha256=hashlib.sha256(eq_bytes).hexdigest())
+    folder = scratch / "toy" / "1"
+    assert got.meta is True and got.version == 1
+    assert json.loads((folder / "meta.json").read_text())["slug"] == "toy"
+    assert json.loads((folder / "equations.json").read_text()) == eq
+    assert status(scratch, "toy")["attempts"][0]["meta"] is True
+
+
+def test_reader_zip_without_meta_still_works(tmp_path):
+    got = receive(tmp_path / "s", "toy", reader_zip(tmp_path / "toy.zip", toy()))
+    assert got.meta is False
+    assert not (tmp_path / "s" / "toy" / "1" / "meta.json").exists()
+
+
+@pytest.mark.parametrize("meta, extra, message", [
+    ({**example_meta(), "slug": "other"}, None, "meta.json has slug 'other'"),
+    ({"title": "x"}, None, "meta.json invalid"),
+    (example_meta(), {"../evil": b"x"}, "unsafe path"),
+])
+def test_reader_zip_rejections(tmp_path, meta, extra, message):
+    with pytest.raises(IntakeError, match=message):
+        receive(tmp_path / "s", "toy", reader_zip(tmp_path / "toy.zip", toy(), meta, extra))
+
+
+def test_reader_zip_needs_equations_json(tmp_path):
+    import zipfile
+    bad = tmp_path / "bad.zip"
+    with zipfile.ZipFile(bad, "w") as archive:
+        archive.writestr("meta.json", json.dumps(example_meta()))
+    with pytest.raises(IntakeError, match="no equations.json"):
+        receive(tmp_path / "s", "toy", bad)

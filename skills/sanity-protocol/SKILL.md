@@ -54,22 +54,22 @@ token and accepts only `to=publisher`. That header wakes none of the three bots.
 | # | From → to | Header | Attachments |
 |---|---|---|---|
 | 1 | person → Reader | `@<reader handle>` or `sanity run=<slug> to=reader stage=reader` | the paper (PDF or LaTeX), or an arXiv id or DOI in the text |
-| 2 | Reader → Verifier | `sanity run=<slug> to=verifier stage=verifier equations_sha256=<hex>` | `equations.json` |
+| 2 | Reader → Verifier | `sanity run=<slug> to=verifier stage=verifier equations_sha256=<hex>`, as the **caption of the zip** | one file: `<slug>.zip` (`equations.json` + `meta.json`) |
 | 3 | Verifier → Reader | `sanity run=<slug> to=reader error`, as a reply to 2 | none (the error text follows) |
 | 4 | Verifier → group | `sanity run=<slug> status=started attempt=<n> claims=<k> estimate_min=<m>` | `PLAN.md` |
 | 5 | Verifier → group | `sanity run=<slug> status=progress attempt=<n> done=<i>/<k>` | none |
 | 6 | Verifier → Reader | `sanity run=<slug> to=reader question=<q> eq=<number>` | none |
 | 7 | Reader → Verifier | `sanity run=<slug> to=verifier answer=<q>`, as a reply to 6 | optional corrected `equations.json` |
-| 8 | Verifier → Writer | `sanity run=<slug> to=writer stage=writer attempt=<n> equations_sha256=<hex> verdicts_sha256=<hex> bundle_sha256=<hex> code=<commit>`, as the **caption of the bundle** | one file: `<slug>-<n>.zip` (contains `equations.json` and `verify/verdicts.json`) |
+| 8 | Verifier → Writer | `sanity run=<slug> to=writer stage=writer attempt=<n> equations_sha256=<hex> verdicts_sha256=<hex> bundle_sha256=<hex> code=<commit>`, as the **caption of the bundle** | one file: `<slug>-<n>.zip` (contains `equations.json`, `verify/verdicts.json`, `meta.json`, `verify/checks/`) |
 | 9 | Writer → group | `sanity run=<slug> status=done attempt=<n>` | optional `REPORT.md` |
 | 10 | person → any bot | `stop <slug>`, `rerun <slug>`, `status <slug>`, with the bot's @handle, as a reply to it, or after `sanity run=<slug> to=<role>` | none |
-| 11 | Writer → Publisher | `sanity run=<slug> to=publisher stage=event` | none; the next line is one activity line, and it starts with `Reader:`, `Verifier:`, or `Writer:` |
-| 12 | Writer → Publisher | `sanity run=<slug> to=publisher stage=publish` | one `.zip`, the captioned document: `equations.json`, `verdicts.json`, `report.html`, `meta.json`, and the check scripts |
-| 13 | Publisher → group | `published <slug> -> <url>`, or the validation error | none |
+| 11 | Writer → publisher | `sanity run=<slug> to=publisher stage=publish`, as the **caption of the zip** | one file: a `.zip` with `equations.json`, `verdicts.json`, `report.html`, `meta.json`, the check scripts |
+| 12 | any bot → publisher | `sanity run=<slug> to=publisher stage=event`, then one line starting `Reader:`, `Verifier:` or `Writer:` | none |
+| 13 | publisher → Writer | `sanity run=<slug> to=writer status=published url=<url>` or `sanity run=<slug> to=writer status=error`, as a reply to 11 | none (the reason follows) |
 
 Notes:
 
-- **2**: the hash is the sha256 of the attached file (`sha256sum equations.json`).
+- **2**: one Telegram message, the zip with the header as its caption (a file sent on its own, without the header, reaches no bot). `meta.json` comes from `scripts/fetch_paper.py` (an arXiv id, a DOI, or the local file, which gives an example). The hash is the sha256 of `equations.json` inside the zip (`sha256sum equations.json`). The Verifier checks both files and passes `meta.json` on in its bundle.
   The receiver checks it.
 - **3**: one message, with the exact error. The Reader answers with a corrected
   message 2.
@@ -87,15 +87,18 @@ Notes:
   `verify/verdicts.json` from it (and checks `verdicts_sha256`). A run can have several attempts; a later attempt replaces an
   earlier one for the same run.
 - **9**: the end of a run, for people. Nobody answers it.
-- **11**: one activity line, starting `Reader:`, `Verifier:`, or `Writer:`. The publisher appends it (`publish_run.py --event`) and does not
-  reply. An LLM bot that sees it replies `NO_REPLY`.
-- **12**: one zip, header as its caption, for the same reason as message 8: a caption rides
+- **11–13**: the publisher is a daemon, not a Hermes bot: it reads the group itself and is the only process that commits. It needs no wake word. Its answer (13) is a reply to the Writer's zip with a `to=writer` header, so it starts a new Writer turn; the Writer never waits for it. On `status=error` the Writer fixes the zip and sends 11 again; on `status=published` it replies `NO_REPLY`. An event error comes back as `sanity run=<slug> status=error`, for people.
+- **11**: one zip, header as its caption, for the same reason as message 8: a caption rides
   on exactly one file. The zip holds `equations.json`, `verdicts.json` (or
   `verify/verdicts.json`), `report.html`, `meta.json`, and every check script a
   HOLDS or FAILS verdict names. The publisher validates it, runs `publish_run.py`,
   and commits. The same zip a second time does not make a second commit. LLM bots
-  reply `NO_REPLY`. They never hold a GitHub token or deploy key.
-- **13**: the publisher's reply in the group. It is not a header, so it wakes no bot. A malformed `to=publisher` line, or a `stage=publish` with no zip, gets a short hint instead of silence.
+  reply `NO_REPLY`. They never hold a GitHub token or deploy key. `meta.json` is the
+  Reader's, carried through the Verifier's bundle (messages 2 and 8).
+- **12**: one activity line, starting `Reader:`, `Verifier:`, or `Writer:`. The publisher appends it (`publish_run.py --event`) and does not
+  reply. An LLM bot that sees it replies `NO_REPLY`.
+- **13**: the publisher's reply, as a reply to 11, with a `to=writer` header (see above).
+  A malformed `to=publisher` line gets a short hint instead of silence.
 
 ## 4. When to act, when to stay silent
 
