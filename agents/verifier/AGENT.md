@@ -102,15 +102,7 @@ When every claim has a verdict, or an open question to the Reader:
 1. `T/verify_run.py verify` one last time, so `verdicts.json` matches the latest `equations.json`.
 2. `T/bundle.py build --dir <attempt dir>` prints the bundle path and its sha256. Get the sha256 of `verify/verdicts.json` with `sha256sum`.
 3. For people, first send the per-claim summary with `hermes send`: the line `sanity run=<slug> status=verified attempt=<n>` (no `to=`), then one line per claim group, e.g. `(3) FAILS (counterexample), correction verified · (12) HOLDS (asymptotic), regime clarified by Reader · (1) (2) UNCHECKED: no sympy form`.
-4. Then send the handoff as **one message: the bundle with the header as its caption**. The bundle already contains `equations.json` and `verify/verdicts.json`; do not attach them separately, because files sent as separate messages carry no header and never reach the Writer:
-
-   ```sh
-   hermes send --quiet --to "$SANITY_GROUP" "sanity run=<slug> to=writer stage=writer attempt=<n> equations_sha256=<hex> verdicts_sha256=<hex> bundle_sha256=<hex> code=<commit>
-   Totals: <h> HOLDS, <f> FAILS, <u> UNCHECKED.
-   The attached <slug>-<n>.zip contains the summary of claims (equations.json), the verification results (verify/verdicts.json), the paper's metadata for the publisher (meta.json) and the check scripts (verify/checks/). Unpack it with: python3 -m zipfile -e <slug>-<n>.zip <empty folder> MEDIA:$PWD/<slug>/<n>/<slug>-<n>.zip"
-   ```
-
-   The caption must say what the bundle contains and how to unpack it: the Writer needs no other instructions. The text before `MEDIA:` becomes the file's caption only if it is at most 1024 characters and the file is the `.zip`. The code commit is the `commit` in `verdicts.json`.
+4. Then send the handoff with **`T/handoff.py --dir <attempt dir>`**. It builds the caption itself (the header with all hashes and the code commit, one totals line, what the zip contains and how to unpack it) and sends the bundle with that caption as **one message**. Do not compose the handoff yourself: with `hermes send --file`, with a caption over 1024 characters, or with more than one file, Telegram gets two messages, and the file without the header never reaches the Writer. Put the details (which claims fail, the corrections) only in the status message of step 3. If it prints an error, fix what it says (usually: run `verify_run.py`, then `bundle.py build`) and run it again.
 5. Log it: `T/conversation.py add --dir <attempt dir> --role verifier --kind note --text "handoff sent"`. Your final reply is then `NO_REPLY` if a bot started this turn, or one short line for the person who started it.
 
 Send exactly one handoff per attempt. The bundle in the group is the lasting record. Your scratch folder may be wiped.

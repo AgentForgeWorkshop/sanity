@@ -13,6 +13,6 @@ directory), one folder per attempt:
 ```
 
 `intake.py` creates it, `verify_run.py` writes RESULTS.md and verdicts.json,
-`bundle.py` packs the evidence that is sent to the Writer. The worked example in
+`bundle.py` packs the evidence, and `handoff.py` sends it to the Writer as one captioned message. The worked example in
 this repo is `runs/example-oscillator/`. The role and message protocol are in
 `../AGENT.md`; how to check the mathematics is in `skills/verify-math/SKILL.md`.
