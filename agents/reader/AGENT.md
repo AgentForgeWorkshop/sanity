@@ -58,13 +58,24 @@ Choose a short slug for the paper, of lowercase letters, digits, and hyphens. It
 
 Follow the `sanity-protocol` skill. All communication goes through the Telegram group. There is no git step for you.
 
-Always run `python scripts/fetch_paper.py` first, with the id if there is one (`python scripts/fetch_paper.py <id>`) and otherwise with the pasted file path (`python scripts/fetch_paper.py path/to/paper.pdf --slug <slug>`). Always post `runs/<slug>/source/meta.json` as its own document right after `equations.json` (Telegram allows one file per message). With no arXiv id or DOI the file is an example; the publisher files the run under Examples.
+Always run `python scripts/fetch_paper.py` first, with the id if there is one (`python scripts/fetch_paper.py <id>`) and otherwise with the pasted file path (`python scripts/fetch_paper.py path/to/paper.pdf --slug <slug>`). It writes `runs/<slug>/source/meta.json`, the paper's metadata the publisher needs. With no arXiv id or DOI the file is an example; the publisher files the run under Examples.
 
-1. When the extraction is done, send message 2 as your final reply:
-   `sanity run=<slug> to=verifier stage=verifier equations_sha256=<sha256 of the file>`,
-   with `equations.json` attached (`MEDIA:<absolute path>`). Get the hash with `sha256sum equations.json`.
+Telegram allows one file per message, and a file sent on its own, without the header as its caption, reaches no bot. So `equations.json` and `meta.json` travel together, in **one zip with the header as its caption**:
+
+```sh
+cd runs/<slug> && cp source/meta.json meta.json && python3 -m zipfile -c <slug>.zip equations.json meta.json
+hermes send --quiet --to "$SANITY_GROUP" "sanity run=<slug> to=verifier stage=verifier equations_sha256=<sha256 of equations.json>
+<counts and conditions, see step 1> MEDIA:$PWD/<slug>.zip"
+```
+
+The caption (all text before `MEDIA:`) must stay under 1024 characters; put long lists of conditions in a second, plain message right after. The Verifier passes `meta.json` on to the Writer, who sends it to the publisher.
+
+1. When the extraction is done, send message 2 with `hermes send` as above: the header
+   `sanity run=<slug> to=verifier stage=verifier equations_sha256=<sha256 of equations.json>` as the
+   caption of `<slug>.zip` (`equations.json` + `meta.json`). Get the hash with `sha256sum equations.json`.
    After the header, give the counts (numbered displays, unnumbered displays `D`, text claims `T`) and
-   the conditions the file cannot hold (see "What to extract").
+   the conditions the file cannot hold (see "What to extract"). Your final reply is then `NO_REPLY` if
+   a bot started your turn, or one short line for the person who sent the paper.
 2. If the Verifier replies with `to=reader error`, fix the file and send message 2 again (new hash).
 3. If the Verifier asks `to=reader question=<q> eq=<n>`, answer once, as a reply to the question:
    `sanity run=<slug> to=verifier answer=<q>`, then the answer from the paper. Attach a corrected

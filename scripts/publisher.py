@@ -15,6 +15,14 @@ as Ilkham Yabbarov <ilkhamfy@gmail.com> with message "site". The push goes to
 branch data and is never a force push. The same zip twice does not make a second
 commit. stage=event appends one activity line.
 
+Every reply to a publish goes back as a *reply* to that message, with a header the
+Writer's wake word catches (it cannot wait for an answer; the reply starts its turn):
+
+    sanity run=<slug> to=writer status=published url=<page url>
+    sanity run=<slug> to=writer status=error        (the reason on the next line)
+
+An event error is for people: ``sanity run=<slug> status=error`` (no ``to=``).
+
 LLM bots do not hold the token or the deploy key. See docs/setup-publisher.md.
 """
 
@@ -118,6 +126,22 @@ def attachment_error(document: dict, header: dict | None) -> str | None:
         if not zip_document(document):
             return "publish attachment must be a .zip"
     return None
+
+
+def answer(header: dict, body: str, *, ok: bool) -> str:
+    """The reply text: a header line, then the human-readable body.
+
+    A publish result goes to the Writer (``to=writer``), so its wake word catches it.
+    An event error has no ``to=``: it is for people, and no bot wakes for it.
+    """
+    run = header.get("run", "")
+    if header.get("stage") == "publish":
+        status = "published" if ok and "published" in body else "error"
+        url = body.rsplit("-> ", 1)[1].strip() if status == "published" and "-> " in body else ""
+        line = f"sanity run={run} to=writer status={status}" + (f" url={url}" if url else "")
+    else:
+        line = f"sanity run={run} status={'ok' if ok else 'error'}"
+    return f"{line}\n{body}"
 
 
 def activity_role(header: dict, line: str) -> str | None:
@@ -303,7 +327,7 @@ class Publisher:
         self.fetch = fetch
         self.push = push and not dry_run and bool(deploy_key)
         self.seen: set[str] = set()
-        self.queue: list[tuple[int, str]] = []
+        self.queue: list[tuple[int, str, int | None]] = []
         self.last_send = -1e9
         self.pending: dict[str, dict] = {}
 
@@ -317,11 +341,11 @@ class Publisher:
             self.seen = set(list(self.seen)[-2000:])
         return False
 
-    def enqueue(self, chat_id: int, text: str, now: float) -> list[str]:
-        self.queue.append((chat_id, text))
+    def enqueue(self, chat_id: int, text: str, now: float, reply_to: int | None = None) -> list[tuple]:
+        self.queue.append((chat_id, text, reply_to))
         return self.drain(now)
 
-    def drain(self, now: float) -> list[tuple[int, str]]:
+    def drain(self, now: float) -> list[tuple[int, str, int | None]]:
         sent = []
         while self.queue and now - self.last_send >= GAP:
             sent.append(self.queue.pop(0))
@@ -341,18 +365,21 @@ class Publisher:
                 return self.enqueue(chat_id, HEADER_HINT, now)
             return self.drain(now)
         document = message.get("document") or {}
+        reply_to = message_id or None
         problem = attachment_error(document, header)
         if problem:
-            return self.enqueue(chat_id, problem, now)
+            return self.enqueue(chat_id, answer(header, problem, ok=False), now, reply_to)
         try:
             if header["stage"] == "event":
                 reply = self._event(header, text, chat_id)
+                ok = True
             else:
                 reply = self._collect_publish(header, message, blobs, now)
+                ok = True
         except (PublisherError, SystemExit) as exc:
-            reply = str(exc)
+            reply, ok = str(exc), False
         if reply:
-            return self.enqueue(chat_id, reply, now)
+            return self.enqueue(chat_id, answer(header, reply, ok=ok), now, reply_to)
         return self.drain(now)
 
     def _event(self, header: dict, text: str, chat_id: int) -> str | None:
@@ -507,8 +534,11 @@ class BotApi:
         with urlopen(url, timeout=60) as response:
             return response.read()
 
-    def send(self, chat_id: int, text: str) -> None:
-        self.call("sendMessage", {"chat_id": chat_id, "text": text[:3500]})
+    def send(self, chat_id: int, text: str, reply_to: int | None = None) -> None:
+        params = {"chat_id": chat_id, "text": text[:3500]}
+        if reply_to:
+            params["reply_parameters"] = json.dumps({"message_id": reply_to, "allow_sending_without_reply": True})
+        self.call("sendMessage", params)
 
 
 def read_bot_token() -> str:
@@ -557,7 +587,7 @@ def serve(repo: Path, *, dry_run: bool) -> None:
     while True:
         batch = api.updates(offset)
         now = time.time()
-        outgoing: list[tuple[int, str]] = []
+        outgoing: list[tuple[int, str, int | None]] = []
         for update in batch:
             offset = max(offset, int(update["update_id"]) + 1)
             message = update.get("message") or update.get("channel_post")
@@ -572,9 +602,9 @@ def serve(repo: Path, *, dry_run: bool) -> None:
             # handle() dedupes and rate-limits the text; send what it returns, to the same chat.
             outgoing.extend(publisher.handle(message, blobs, now))
             now = publisher.last_send if publisher.last_send > 0 else now
-        for chat_id, text in outgoing:
+        for chat_id, text, reply_to in outgoing:
             if not dry_run:
-                api.send(chat_id, text)
+                api.send(chat_id, text, reply_to)
             print(text)
         save_state(state_path, offset, publisher.seen)
         if dry_run:

@@ -13,10 +13,14 @@ Verifier's Hermes working folder):
       verify/PLAN.md, verify/checks/, ...         see verify_run.py
       <slug>-<attempt>.zip                        see bundle.py
 
-``receive`` checks the sha256 (if given), validates the file against the
-equations schema (parsing every sympy field safely, via claims.py), checks
-that its slug matches, and stores it as the next version of the current
-attempt. A file identical to the latest version is not stored twice.
+``receive`` takes either ``equations.json`` or the Reader's ``<slug>.zip``
+(``equations.json`` plus ``meta.json``, the paper's metadata from
+``scripts/fetch_paper.py``). It checks the sha256 of ``equations.json`` (if
+given), validates it against the equations schema (parsing every sympy field
+safely, via claims.py) and ``meta.json`` against ``docs/schemas/meta.schema.json``,
+checks that both slugs match, and stores ``equations.json`` as the next version
+of the current attempt and ``meta.json`` next to it (the Verifier's bundle carries
+it on to the Writer and the publisher). A file identical to the latest version is not stored twice.
 A new attempt n+1 starts when there is none yet, when ``--new-attempt`` is
 given (a human asked for a re-run, or an answer arrived after the handoff), or
 when a different file arrives after the current attempt already has verdicts.
@@ -35,14 +39,21 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import io
 import json
 import re
 import shutil
 import sys
+import tempfile
+import zipfile
 from dataclasses import asdict, dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
+
+import jsonschema
 
 from claims import ClaimError, load_claims
+
+META_SCHEMA = Path(__file__).resolve().parents[2] / "docs" / "schemas" / "meta.schema.json"
 
 SLUG = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 VERSION = re.compile(r"^equations\.v(\d+)\.json$")
@@ -62,6 +73,7 @@ class Received:
     path: str
     duplicate: bool
     already_verified_in: int | None
+    meta: bool = False
 
 
 def sha256_file(path: Path) -> str:
@@ -117,13 +129,66 @@ def verified_with(scratch: Path, slug: str, sha256: str) -> int | None:
     return None
 
 
+def unpack_reader_zip(source: Path, dest: Path) -> tuple[Path, Path | None]:
+    """equations.json (and meta.json, if present) from the Reader's zip, after path checks."""
+    try:
+        archive = zipfile.ZipFile(io.BytesIO(Path(source).read_bytes()))
+    except zipfile.BadZipFile as exc:
+        raise IntakeError(f"not a readable zip: {exc}") from None
+    found: dict[str, bytes] = {}
+    with archive:
+        for info in archive.infolist():
+            if info.is_dir():
+                continue
+            path = PurePosixPath(info.filename)
+            if path.is_absolute() or ".." in path.parts:
+                raise IntakeError(f"unsafe path in zip: {info.filename}")
+            if path.name in {"equations.json", "meta.json"}:
+                if path.name in found:
+                    raise IntakeError(f"zip has more than one {path.name}")
+                found[path.name] = archive.read(info)
+    if "equations.json" not in found:
+        raise IntakeError("zip has no equations.json")
+    equations = dest / "equations.json"
+    equations.write_bytes(found["equations.json"])
+    meta = None
+    if "meta.json" in found:
+        meta = dest / "meta.json"
+        meta.write_bytes(found["meta.json"])
+    return equations, meta
+
+
+def check_meta(meta_path: Path, slug: str) -> None:
+    try:
+        meta = json.loads(Path(meta_path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise IntakeError(f"meta.json is not JSON: {exc}") from None
+    if META_SCHEMA.is_file():
+        try:
+            jsonschema.validate(meta, json.loads(META_SCHEMA.read_text(encoding="utf-8")))
+        except jsonschema.ValidationError as exc:
+            where = "/".join(str(part) for part in exc.absolute_path) or "(root)"
+            raise IntakeError(f"meta.json invalid at {where}: {exc.message}") from None
+    if meta.get("slug") not in {None, slug}:
+        raise IntakeError(f"meta.json has slug {meta.get('slug')!r}, message says {slug!r}")
+
+
 def receive(scratch: Path, slug: str, source: Path, expected_sha256: str | None = None,
             new_attempt: bool = False, carry: bool = False) -> Received:
-    """Validate ``source`` and store it as the next equations version."""
+    """Validate ``source`` (equations.json or the Reader's zip) and store it as the next version."""
     check_slug(slug)
     source = Path(source)
     if not source.is_file():
         raise IntakeError(f"no such file: {source}")
+    if source.read_bytes()[:2] == b"PK":
+        with tempfile.TemporaryDirectory() as tmp:
+            equations, meta = unpack_reader_zip(source, Path(tmp))
+            if meta is not None:
+                check_meta(meta, slug)
+            got = receive(scratch, slug, equations, expected_sha256, new_attempt, carry)
+            if meta is not None:
+                shutil.copyfile(meta, Path(got.path).parent / "meta.json")
+            return Received(**{**asdict(got), "meta": meta is not None})
     sha = sha256_file(source)
     if expected_sha256 and sha != expected_sha256.lower():
         raise IntakeError(f"sha256 mismatch: header says {expected_sha256}, file is {sha}")
@@ -181,6 +246,7 @@ def status(scratch: Path, slug: str) -> dict:
                 "plan": (folder / "verify" / "PLAN.md").is_file(),
                 "checks": len(list((folder / "verify" / "checks").glob("*.py"))),
                 "verdicts": (folder / "verify" / "verdicts.json").is_file(),
+                "meta": (folder / "meta.json").is_file(),
                 "bundle": bundles[0] if bundles else None,
                 "conversation_entries": len(entries),
             }

@@ -47,8 +47,8 @@ mid-run messages are not configured.
 
 ## 1. Receive
 
-1. Download the attached `equations.json`. Run
-   `T/intake.py receive --slug <slug> --file <download> --sha256 <hex from header>`.
+1. Download the attachment: the Reader's `<slug>.zip` (`equations.json` + `meta.json`), or a bare `equations.json`. Run
+   `T/intake.py receive --slug <slug> --file <download> --sha256 <hex from header>`. It unpacks the zip, checks both files, and keeps `meta.json` in the attempt folder; the bundle carries it on to the Writer.
 2. If it prints an error, reply to the Reader's message once, starting with `sanity run=<slug> to=reader error`, then that exact error (e.g. `eq (5): undeclared name 'k'`), and stop. The Reader will send a corrected file.
 3. If it reports `"duplicate": true` and `already_verified_in` is set, do not verify again. Reply that the run was already verified in that attempt and re-send that attempt's handoff to the Writer. Only a person's `rerun` starts over.
 4. Otherwise plan (section 2). Post the start message before writing any check.
@@ -107,7 +107,7 @@ When every claim has a verdict, or an open question to the Reader:
    ```sh
    hermes send --quiet --to "$SANITY_GROUP" "sanity run=<slug> to=writer stage=writer attempt=<n> equations_sha256=<hex> verdicts_sha256=<hex> bundle_sha256=<hex> code=<commit>
    Totals: <h> HOLDS, <f> FAILS, <u> UNCHECKED.
-   The attached <slug>-<n>.zip contains the summary of claims (equations.json) and the verification results (verify/verdicts.json). Unpack it with: python3 -m zipfile -e <slug>-<n>.zip <empty folder> MEDIA:$PWD/<slug>/<n>/<slug>-<n>.zip"
+   The attached <slug>-<n>.zip contains the summary of claims (equations.json), the verification results (verify/verdicts.json), the paper's metadata for the publisher (meta.json) and the check scripts (verify/checks/). Unpack it with: python3 -m zipfile -e <slug>-<n>.zip <empty folder> MEDIA:$PWD/<slug>/<n>/<slug>-<n>.zip"
    ```
 
    The caption must say what the bundle contains and how to unpack it: the Writer needs no other instructions. The text before `MEDIA:` becomes the file's caption only if it is at most 1024 characters and the file is the `.zip`. The code commit is the `commit` in `verdicts.json`.

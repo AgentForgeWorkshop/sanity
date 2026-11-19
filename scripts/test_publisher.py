@@ -72,8 +72,16 @@ def _repo(tmp_path: Path) -> Path:
     return repo
 
 
-def _texts(pairs) -> list[str]:
-    return [text for _chat, text in pairs]
+def _texts(replies) -> list[str]:
+    """The human-readable body of each reply (the line after its sanity header)."""
+    out = []
+    for _chat, text, *_reply_to in replies:
+        out.append(text.split("\n", 1)[1] if text.startswith("sanity run=") else text)
+    return out
+
+
+def _headers(replies) -> list[str]:
+    return [text.split("\n", 1)[0] for _chat, text, *_ in replies]
 
 
 def test_token_from_env_or_file(tmp_path, monkeypatch):
@@ -208,3 +216,27 @@ def test_event_line_is_recorded_once(tmp_path):
     bot.handle(message, {}, now=5)
     events_again = json.loads((repo / "site" / "public" / "data" / "activity.json").read_text(encoding="utf-8"))["events"]
     assert events_again == events
+
+
+def test_publish_reply_wakes_the_writer_and_replies_to_its_message(tmp_path):
+    repo = tmp_path / "empty"
+    repo.mkdir()
+    bot = Publisher(repo, dry_run=True, fetch=False, push=False)
+    out = bot.handle(_message(41), {"zip": _zip_bytes()}, now=0)
+    url = f"https://ilkhamfy.github.io/sanity/papers.html?paper={SLUG}"
+    assert _headers(out) == [f"sanity run={SLUG} to=writer status=published url={url}"]
+    assert [reply_to for *_rest, reply_to in out] == [41]
+    bad = bot.handle(_message(42), {"zip": b"PK\x03\x04not-a-zip"}, now=10)
+    assert _headers(bad) == [f"sanity run={SLUG} to=writer status=error"]
+    assert [reply_to for *_rest, reply_to in bad] == [42]
+
+
+def test_publisher_reply_headers_wake_exactly_the_writer():
+    import re
+    env = (REPO / "hermes" / "writer" / "env.example").read_text(encoding="utf-8")
+    writer = re.compile(re.search(r"^TELEGRAM_MENTION_PATTERNS=(.+)$", env, re.M).group(1), re.I)
+    reader_env = (REPO / "hermes" / "reader" / "env.example").read_text(encoding="utf-8")
+    reader = re.compile(re.search(r"^TELEGRAM_MENTION_PATTERNS=(.+)$", reader_env, re.M).group(1), re.I)
+    for status in ("published url=https://x", "error"):
+        line = f"sanity run={SLUG} to=writer status={status}"
+        assert writer.search(line) and not reader.search(line)

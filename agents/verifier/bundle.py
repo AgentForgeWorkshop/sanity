@@ -11,6 +11,7 @@ a captionable document, and .zip is one: the handoff header rides on the bundle
 itself, in one message. ``verify`` and ``extract`` also read older .tar.gz bundles.
 
     equations.json, equations.v<n>.json   what the Reader sent
+    meta.json                             the paper's metadata from the Reader, if sent (for the publisher)
     conversation.jsonl                    questions and answers, if any
     verify/PLAN.md, verify/checks/**, verify/lean/**, verify/RESULTS.md, verify/verdicts.json
     manifest.json                         paper, attempt, code commit, versions, sha256 of every file
@@ -58,7 +59,7 @@ def evidence_files(attempt_dir: Path) -> list[str]:
     """Relative POSIX paths of every file that belongs in the bundle, sorted."""
     root = Path(attempt_dir)
     chosen = []
-    for name in ["equations.json", "conversation.jsonl"] + sorted(p.name for p in root.glob("equations.v*.json")):
+    for name in ["equations.json", "meta.json", "conversation.jsonl"] + sorted(p.name for p in root.glob("equations.v*.json")):
         if (root / name).is_file():
             chosen.append(name)
     verify = root / "verify"
