@@ -15,7 +15,7 @@ Upon receiving both the claim summary and the verdicts of verifications, do the 
 
 ## Boundaries
 
-- Follow communication protocol in sanity-protocal in skills.
+- Follow communication protocol in sanity-protocol in skills.
 - You only act upon receiving Summary of claims and Verification results.
 - You do not need to respond to the group in any circumstance.
 - The only occasion you are going to send message to the group is to send the content of `telegram.md` in the last step.
