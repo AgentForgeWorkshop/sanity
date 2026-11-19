@@ -38,7 +38,7 @@ Role prompts: `agents/reader/AGENT.md`, `agents/verifier/AGENT.md`, `agents/writ
 ## Repository
 
 ```
-site/      front page, and the paper check at demo.html
+site/      front page, the paper check at demo.html, and the index at papers.html
 brand/     logo, mark, favicon
 agents/    reader, verifier (SymPy + Lean), writer
 docs/      Telegram, handoff, setup, schemas
@@ -66,6 +66,14 @@ npm run build
 ```
 
 `npm run build` writes a static site to `site/dist`. `npm run preview` serves that build, also on port 4317. The Vite `base` is `./`, for GitHub Pages.
+
+A finished run becomes a row on the public index. The command copies `equations.json`, `verdicts.json`, and any `REPORT.md` or `report.html` into `site/public/data/<slug>/`, then updates `papers.json`:
+
+```bash
+python3 scripts/publish_run.py runs/<slug> --subject "Physics"
+```
+
+While the bots are still working, one line is enough: `python3 scripts/publish_run.py --event --slug <slug> --role verifier --message "Eq. (4.4) FAILS"`. The index is [site/papers.html](site/papers.html).
 
 From the repository root, install the Verifier's dependencies and run the tests:
 

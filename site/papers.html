@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Checked papers — Sanity</title>
+    <meta name="description" content="Papers whose equations Sanity has checked." />
+    <meta name="theme-color" content="#12263a" />
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    <a class="skip" href="#subjects">Skip to the papers</a>
+    <div class="sheen" aria-hidden="true"></div>
+    <main class="board">
+      <header class="top">
+        <p class="back"><a href="./index.html">Sanity</a></p>
+        <p class="live"><span class="dot" aria-hidden="true"></span> <span id="live">LIVE</span></p>
+        <h1 class="total" id="total" aria-live="polite"></h1>
+      </header>
+      <aside class="feed" id="feed" hidden></aside>
+      <div id="subjects"></div>
+    </main>
+    <footer class="colophon">
+      <p>Sanity · MIT · <a href="./index.html">Home</a></p>
+    </footer>
+    <noscript>
+      <p class="noscript">JavaScript loads the checked papers.</p>
+    </noscript>
+    <script type="module" src="/src/papers.js"></script>
+  </body>
+</html>

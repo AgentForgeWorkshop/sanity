@@ -1,0 +1,32 @@
+{
+  "events": [
+    {
+      "time": "2026-11-18T03:29:00Z",
+      "slug": "example-oscillator",
+      "role": "writer",
+      "event": "published the report",
+      "detail": "two confirmed flags."
+    },
+    {
+      "time": "2026-11-18T14:39:21",
+      "slug": "example-oscillator",
+      "role": "verifier",
+      "event": "recorded verdicts",
+      "detail": "2 fails, 3 unchecked. Eq. (3) FAILS; Eq. (4) FAILS"
+    },
+    {
+      "time": "2026-11-18T22:38:34",
+      "slug": "arxiv-2410-11128",
+      "role": "verifier",
+      "event": "recorded verdicts",
+      "detail": "5 hold, 1 fails, 2 unchecked. Eq. (4.4) FAILS"
+    },
+    {
+      "time": "2026-11-18T22:45:00Z",
+      "slug": "arxiv-2410-11128",
+      "role": "writer",
+      "event": "published the report",
+      "detail": "Eq. (4.4) in v1 fails."
+    }
+  ]
+}

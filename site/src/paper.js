@@ -125,8 +125,38 @@ function render(equations, verdicts) {
   }
 }
 
+function showTabs(visible) {
+  const bar = document.querySelector(".tabs");
+  if (bar) bar.hidden = !visible;
+}
+
+async function loadSlug(slug) {
+  showTabs(false);
+  const [equations, verdicts, index] = await Promise.all([
+    fetch(`./data/${slug}/equations.json`).then((response) => response.json()),
+    fetch(`./data/${slug}/verdicts.json`).then((response) => response.json()),
+    fetch("./data/papers.json").then((response) => response.json()).catch(() => ({ papers: [] })),
+  ]);
+  const meta = (index.papers || []).find((paper) => paper.slug === slug) || {};
+  titleEl.textContent = equations.title || meta.title || slug;
+  linkEl.replaceChildren();
+  if (meta.source_url) {
+    const anchor = document.createElement("a");
+    anchor.href = meta.source_url;
+    anchor.textContent = meta.source_url.replace(/^https?:\/\//, "");
+    anchor.rel = "noopener noreferrer";
+    linkEl.append(anchor);
+  }
+  blurbEl.textContent = meta.judgement || "";
+  countEl.textContent = countLine(verdicts.claims);
+  noteEl.textContent = meta.example ? "Example data. Not a published paper." : "";
+  render(equations, verdicts);
+  document.title = `${titleEl.textContent} — Sanity`;
+}
+
 async function load(key) {
   const run = RUNS[key];
+  showTabs(true);
   for (const [name, button] of Object.entries(tabs)) {
     button.setAttribute("aria-selected", name === key ? "true" : "false");
   }
@@ -151,4 +181,9 @@ async function load(key) {
 
 tabs.paper.addEventListener("click", () => load("paper"));
 tabs.toy.addEventListener("click", () => load("toy"));
-load("paper");
+
+const requested = new URLSearchParams(location.search).get("run");
+const known = Object.entries(RUNS).find(([, run]) => run.id === requested);
+if (known) load(known[0]);
+else if (requested) loadSlug(requested);
+else load("paper");
