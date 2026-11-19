@@ -51,7 +51,7 @@
   "$defs": {
     "sympy": {
       "type": "object",
-      "description": "Optional machine form of the equation, written by the Reader, read by the Verifier. Strings use SymPy syntax: ** for powers, explicit * for products. Every name must be declared in symbols or functions, apart from standard SymPy functions and constants (sqrt, exp, sin, pi, I, ...).",
+      "description": "Optional machine form of the equation, written by the Reader, read by the Verifier. Strings use SymPy syntax: ** for powers, explicit * for products. Every name must be declared in symbols or functions, apart from standard SymPy functions and constants (sqrt, exp, sin, zeta, Limit, O, pi, I, ...). A declared name wins over a SymPy one: declare E, gamma or I as symbols and they are the paper's quantities, not Euler's number, the Gamma function or the imaginary unit. Limit takes '+' or '-' as its fourth argument; no other strings are allowed.",
       "additionalProperties": false,
       "required": ["lhs", "rhs", "symbols"],
       "if": {
