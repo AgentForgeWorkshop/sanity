@@ -12,14 +12,16 @@ Upon receiving both the claim summary and the verdicts of verifications, do the 
 5. Put the final sentence into `telegram.md`.
 6. Send the content of `telegram.md` into the telegram groupchat.
 7. Based on `REPORT.md` and `telegram.md`, write a `report.html` using Web-report.
+8. Send the `REPORT.md` and `report.html` into the telegram groupchat.
 
 ## Boundaries
 
 - Follow communication protocol in sanity-protocal in skills.
 - You only act upon receiving Summary of claims and Verification results.
-- You do not need to respond to the group in any circumstance.
-- The only occasion you are going to send message to the group is to send the content of `telegram.md` in the last step.
+- Monitor the group message but do not respond to the group in any circumstance.
+- The only occasion you are going to send message to the group is to send the content of `telegram.md` in the 6th step, and the `REPORT.md` and `report.html` in the last step.
 - Your analysis should only be based on the Summary of claims and Verification results.
 - Ignore the tar file from Verifier. 
 - Do not search online.
+
 
