@@ -37,6 +37,13 @@ Follow [docs/telegram.md](telegram.md). For the Verifier specifically:
    bot IDs, the gateway blocks handoffs ("Blocked unauthorized user" in the log).
 3. The bot is in the group, and was re-added after changing the privacy setting.
 
+## Shared bot settings
+
+`configure` sets the Verifier-specific parts (Python environment, scratch folder)
+and then runs `scripts/configure_bot.sh verifier`, the same script the Reader and
+Writer bots use, for everything every Sanity bot needs. Check any bot with
+`bash scripts/configure_bot.sh check <role>`.
+
 ## Addressing by role (all three bots)
 
 Bots never need each other's @handles. Every machine message names its target role
@@ -71,7 +78,8 @@ running sessions keep the old instructions.
 Hermes asks for approval before commands it considers risky (e.g. scripts passed
 through a heredoc), and by default (`approvals.approvers: ['*']`) anyone the bot
 accepts may approve, including the other people in the group. Run `configure` with
-`APPROVER_ID=<your Telegram user ID>` so only you can approve commands on your
+`APPROVERS=<id>,<id>,<id>` (the three people's Telegram IDs) so only people, not the
+bots, can approve commands on your
 machine. The Verifier's instructions avoid such commands: it writes scripts with its
 file tool and runs them as files.
 

@@ -118,6 +118,10 @@ Also:
 
 ## 6. Hermes settings every Sanity bot needs
 
+`scripts/configure_bot.sh <reader|writer|verifier>` sets all of this except the
+@BotFather switch and the list of allowed IDs, and `scripts/configure_bot.sh check
+<role>` reports what is missing.
+
 | Setting | Value | Why |
 |---|---|---|
 | `TELEGRAM_REQUIRE_MENTION` (`.env`) | `true` | otherwise the bot answers every group message |
@@ -125,7 +129,7 @@ Also:
 | `TELEGRAM_ALLOWED_USERS` (`.env`) | the three people, the other two bots, the group | bot-to-bot messages are blocked otherwise |
 | `gateway.bot_loop_guard.bot_replies_expect_reply` | `true` | otherwise questions and answers between bots are dropped |
 | `gateway.bot_loop_guard.max_hops` | `8` | a handoff plus up to 3 questions with answers |
-| `approvals.approvers` | the bot owner's Telegram ID | only the owner approves risky commands |
+| `approvals.approvers` | the three people's Telegram IDs | any person may approve risky commands; no bot can |
 | `skills.auto_load` | includes `sanity-protocol` | this skill |
 | @BotFather | privacy off, Bot-to-Bot Communication Mode on | bots see each other only with it |
 
