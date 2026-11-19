@@ -11,7 +11,7 @@ Verifier's Hermes working folder):
       equations.json                              copy of the latest version (what checks use)
       conversation.jsonl                          see conversation.py
       verify/PLAN.md, verify/checks/, ...         see verify_run.py
-      <slug>-<attempt>.tar.gz                     see bundle.py
+      <slug>-<attempt>.zip                        see bundle.py
 
 ``receive`` checks the sha256 (if given), validates the file against the
 equations schema (parsing every sympy field safely, via claims.py), checks
@@ -169,7 +169,7 @@ def status(scratch: Path, slug: str) -> dict:
     for number in attempts(scratch, slug):
         folder = Path(scratch) / slug / str(number)
         current = folder / "equations.json"
-        bundles = sorted(p.name for p in folder.glob(f"{slug}-{number}.tar.gz"))
+        bundles = sorted(p.name for p in [*folder.glob(f"{slug}-{number}.zip"), *folder.glob(f"{slug}-{number}.tar.gz")])
         log = folder / "conversation.jsonl"
         entries = log.read_text(encoding="utf-8").splitlines() if log.is_file() else []
         result["attempts"].append(
