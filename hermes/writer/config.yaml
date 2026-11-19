@@ -21,6 +21,12 @@ skills:
     - "${SANITY_REPO}/skills"
   auto_load:
     - verify-math
+    - sanity-protocol   # shared message protocol (skills/sanity-protocol)
+
+gateway:
+  bot_loop_guard:
+    bot_replies_expect_reply: true   # questions and answers between bots
+    max_hops: 8
 
 platforms:
   telegram:
