@@ -4,6 +4,7 @@ import io
 import json
 import shutil
 import tarfile
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -34,14 +35,16 @@ def finished_attempt(tmp_path):
 def test_build_and_verify_round_trip(tmp_path):
     folder = finished_attempt(tmp_path)
     path, sha = build(folder)
-    assert path.name == "example-oscillator-1.tar.gz"
+    assert path.name == "example-oscillator-1.zip"
+    assert path.read_bytes()[:2] == b"PK"
+    assert build(folder)[1] == sha  # deterministic: same content, same hash
     manifest = verify(path, expected_sha256=sha)
     assert (manifest["paper"], manifest["attempt"]) == ("example-oscillator", 1)
     assert manifest["code_commit"] and manifest["python"] and manifest["sympy"]
     files = {entry["path"] for entry in manifest["files"]}
     assert {"equations.json", "equations.v1.json", "conversation.jsonl", "verify/PLAN.md",
             "verify/RESULTS.md", "verify/verdicts.json", "verify/checks/02_eq3_paper_energy_step.py"} <= files
-    assert not any("__pycache__" in name or name.endswith(".tar.gz") for name in files)
+    assert not any("__pycache__" in name or name.endswith((".tar.gz", ".zip")) for name in files)
 
 
 def test_extracted_bundle_reruns_to_the_same_claims(tmp_path):
@@ -71,15 +74,12 @@ def test_build_refuses_unfinished_or_stale_runs(tmp_path):
 
 
 def _tamper(path, name, data):
-    with tarfile.open(path, "r:gz") as tar:
-        members = [(m, tar.extractfile(m).read()) for m in tar.getmembers()]
+    with zipfile.ZipFile(path) as archive:
+        members = [(info.filename, archive.read(info)) for info in archive.infolist()]
     raw = io.BytesIO()
-    with tarfile.open(fileobj=raw, mode="w:gz") as tar:
-        for member, content in members:
-            if member.name == name:
-                content = data
-                member.size = len(data)
-            tar.addfile(member, io.BytesIO(content))
+    with zipfile.ZipFile(raw, "w") as archive:
+        for filename, content in members:
+            archive.writestr(filename, data if filename == name else content)
     path.write_bytes(raw.getvalue())
 
 
@@ -93,16 +93,39 @@ def test_verify_detects_tampering_and_bad_hash(tmp_path):
         verify(path)
 
 
-def test_verify_rejects_unsafe_paths(tmp_path):
+@pytest.mark.parametrize("fmt", ["zip", "tar.gz"])
+def test_verify_rejects_unsafe_paths(tmp_path, fmt):
     raw = io.BytesIO()
-    with tarfile.open(fileobj=raw, mode="w:gz") as tar:
-        info = tarfile.TarInfo("../evil.txt")
-        info.size = 1
-        tar.addfile(info, io.BytesIO(b"x"))
-    bad = tmp_path / "bad.tar.gz"
+    if fmt == "zip":
+        with zipfile.ZipFile(raw, "w") as archive:
+            archive.writestr("../evil.txt", b"x")
+    else:
+        with tarfile.open(fileobj=raw, mode="w:gz") as tar:
+            info = tarfile.TarInfo("../evil.txt")
+            info.size = 1
+            tar.addfile(info, io.BytesIO(b"x"))
+    bad = tmp_path / f"bad.{fmt}"
     bad.write_bytes(raw.getvalue())
     with pytest.raises(BundleError, match="unsafe"):
         verify(bad)
+
+
+def test_older_tar_gz_bundles_still_verify_and_extract(tmp_path):
+    folder = finished_attempt(tmp_path)
+    path, _ = build(folder)
+    with zipfile.ZipFile(path) as archive:
+        members = [(info.filename, archive.read(info)) for info in archive.infolist()]
+    raw = io.BytesIO()
+    with tarfile.open(fileobj=raw, mode="w:gz") as tar:
+        for name, data in members:
+            info = tarfile.TarInfo(name)
+            info.size = len(data)
+            tar.addfile(info, io.BytesIO(data))
+    old = tmp_path / "example-oscillator-1.tar.gz"
+    old.write_bytes(raw.getvalue())
+    assert verify(old)["paper"] == "example-oscillator"
+    extract(old, tmp_path / "old")
+    assert (tmp_path / "old" / "verify" / "verdicts.json").is_file()
 
 
 def test_extract_needs_an_empty_destination(tmp_path):

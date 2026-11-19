@@ -30,8 +30,8 @@ group, without a paper and without the Reader. You play the Reader.
      with the plan and `PLAN.md` attached
    - a question as a reply: `sanity run=smoke-test to=reader question=1 eq=4 …`
    - **without waiting for your answer**, the handoff
-     `sanity run=smoke-test to=writer stage=writer attempt=1 …`, with `verdicts.json` and
-     `smoke-test-1.tar.gz` attached: (1) HOLDS symbolic, (2) FAILS with a verified
+     `sanity run=smoke-test to=writer stage=writer attempt=1 …` as the caption of one file,
+     `smoke-test-1.zip` (preceded by a `status=verified` summary): (1) HOLDS symbolic, (2) FAILS with a verified
      correction, (3) HOLDS asymptotic, (4) UNCHECKED (awaiting answer), (5) HOLDS proof
 4. Answer the question by replying to it:
 
@@ -40,7 +40,7 @@ group, without a paper and without the Reader. You play the Reader.
    As x → 0.
    ```
 
-   Expect a second handoff, `attempt=2`, with `smoke-test-2.tar.gz`, where (4) is
+   Expect a second handoff, `attempt=2`, with `smoke-test-2.zip`, where (4) is
    now settled (HOLDS asymptotic: x/(1+x) / x → 1 as x → 0).
 
 ## Check a bundle
@@ -49,15 +49,15 @@ Save the attachment from Telegram, copy `bundle_sha256` from the handoff
 message, and run on your Mac (plain `python3` is enough):
 
 ```bash
-python3 agents/verifier/bundle.py verify --bundle ~/Downloads/smoke-test-1.tar.gz --sha256 <bundle_sha256>
+python3 agents/verifier/bundle.py verify --bundle ~/Downloads/smoke-test-1.zip --sha256 <bundle_sha256>
 ```
 
 To re-run it, inside the container (where SymPy and Lean are):
 
 ```bash
-docker cp ~/Downloads/smoke-test-1.tar.gz hermes:/tmp/b.tar.gz
+docker cp ~/Downloads/smoke-test-1.zip hermes:/tmp/b.zip
 docker exec -u hermes hermes sh -c '. /opt/data/sanity-verifier/scratch/sanity.env; rm -rf /tmp/rr;
-  $SANITY_PYTHON $SANITY_REPO/agents/verifier/bundle.py verify --bundle /tmp/b.tar.gz --extract /tmp/rr/smoke-test &&
+  $SANITY_PYTHON $SANITY_REPO/agents/verifier/bundle.py verify --bundle /tmp/b.zip --extract /tmp/rr/smoke-test &&
   $SANITY_PYTHON $SANITY_REPO/agents/verifier/verify_run.py /tmp/rr/smoke-test/verify'
 ```
 

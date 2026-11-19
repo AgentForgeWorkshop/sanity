@@ -56,7 +56,7 @@ whoever runs it:
 | 5 | Verifier → group | `sanity run=<slug> status=progress attempt=<n> done=<i>/<k>` | none |
 | 6 | Verifier → Reader | `sanity run=<slug> to=reader question=<q> eq=<number>` | none |
 | 7 | Reader → Verifier | `sanity run=<slug> to=verifier answer=<q>`, as a reply to 6 | optional corrected `equations.json` |
-| 8 | Verifier → Writer | `sanity run=<slug> to=writer stage=writer attempt=<n> equations_sha256=<hex> verdicts_sha256=<hex> bundle_sha256=<hex> code=<commit>` | `equations.json`, `verdicts.json`, `<slug>-<n>.tar.gz` |
+| 8 | Verifier → Writer | `sanity run=<slug> to=writer stage=writer attempt=<n> equations_sha256=<hex> verdicts_sha256=<hex> bundle_sha256=<hex> code=<commit>`, as the **caption of the bundle** | one file: `<slug>-<n>.zip` (contains `equations.json` and `verify/verdicts.json`) |
 | 9 | Writer → group | `sanity run=<slug> status=done attempt=<n>` | optional `REPORT.md` |
 | 10 | person → any bot | `stop <slug>`, `rerun <slug>`, `status <slug>`, with the bot's @handle, as a reply to it, or after `sanity run=<slug> to=<role>` | none |
 
@@ -70,9 +70,15 @@ Notes:
   and 5 at most every 10 minutes.
 - **6, 7**: at most 3 questions per attempt. The Verifier does not wait for answers:
   it hands off (8), and an answer starts the next attempt.
-- **8**: a run can have several attempts. A later attempt replaces an earlier one for
-  the same run. The Writer checks `verdicts_sha256` against the attached
-  `verdicts.json`.
+- **8**: **one Telegram message: the bundle, with the header as its caption.** Files sent
+  as separate messages carry no header, so they never reach the Writer. A caption holds
+  at most 1024 characters: the header plus one line of totals. The per-claim summary for
+  people goes out just before, as a status line `sanity run=<slug> status=verified
+  attempt=<n>` (no `to=`). The caption also says what the bundle contains and how to
+  unpack it (`python3 -m zipfile -e <file> <folder>`, standard library only). The Writer
+  checks the bundle against `bundle_sha256`, unpacks it, and takes `equations.json` and
+  `verify/verdicts.json` from it (and checks `verdicts_sha256`). A run can have several attempts; a later attempt replaces an
+  earlier one for the same run.
 - **9**: the end of a run, for people. Nobody answers it.
 
 ## 4. When to act, when to stay silent
@@ -102,8 +108,17 @@ Also:
 ## 5. How to send
 
 - **Your final reply** of a turn is delivered when the turn ends. Use it for the
-  message that finishes your step (2, 3, 7, 8, 9). Attach files with one line each:
-  `MEDIA:<absolute path>`.
+  message that finishes your step (2, 3, 7, 9). Attach files with one line each:
+  `MEDIA:<absolute path>`. Text and files then arrive as **separate** messages: a file
+  gets no caption.
+- **A file that must carry the header** (message 8) goes out with one `hermes send`, the
+  header before the `MEDIA:` line, so Hermes sends it as the file's caption. This works
+  only for exactly one file of a captionable type (`.zip`, `.pdf`, `.txt`, `.md`, …;
+  not `.tar.gz`) and at most 1024 characters of text:
+
+  ```sh
+  hermes send --quiet --to "$SANITY_GROUP" "sanity run=<slug> to=writer stage=writer ... MEDIA:/abs/path/<slug>-<n>.zip"
+  ```
 - **During a long turn**, send anything that must go out earlier (4, 5, 6) from your
   terminal. The gateway's own reply would only arrive at the end.
 

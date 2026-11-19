@@ -9,7 +9,7 @@ directory), one folder per attempt:
   equations.v<n>.json, equations.json
   conversation.jsonl
   verify/PLAN.md, verify/checks/, verify/RESULTS.md, verify/verdicts.json
-  <slug>-<attempt>.tar.gz
+  <slug>-<attempt>.zip
 ```
 
 `intake.py` creates it, `verify_run.py` writes RESULTS.md and verdicts.json,

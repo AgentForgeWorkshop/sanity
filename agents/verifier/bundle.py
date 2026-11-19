@@ -5,7 +5,10 @@
 
 The bundle is the lasting record of a verification: scratch folders are
 temporary, and the bundle is what goes to the Writer and stays in the group.
-It is a .tar.gz of the run folder's evidence plus a manifest.json:
+It is a .zip (``<slug>-<attempt>.zip``) of the run folder's evidence plus a
+manifest.json. A .zip, because Telegram (via Hermes) can carry a caption only on
+a captionable document, and .zip is one: the handoff header rides on the bundle
+itself, in one message. ``verify`` and ``extract`` also read older .tar.gz bundles.
 
     equations.json, equations.v<n>.json   what the Reader sent
     conversation.jsonl                    questions and answers, if any
@@ -27,18 +30,18 @@ from __future__ import annotations
 
 import argparse
 import datetime
-import gzip
 import hashlib
 import io
 import json
 import platform
 import sys
 import tarfile
-import tempfile
+import zipfile
 from pathlib import Path, PurePosixPath
 
 SKIP_PARTS = {"__pycache__", ".lake", "build", ".pytest_cache"}
-SKIP_SUFFIXES = {".olean", ".ilean", ".pyc", ".tar.gz"}
+SKIP_SUFFIXES = {".olean", ".ilean", ".pyc", ".tar.gz", ".zip"}
+ZIP_TIME = (1980, 1, 1, 0, 0, 0)  # fixed timestamp: same content, same bytes
 REQUIRED = ("equations.json", "verify/RESULTS.md", "verify/verdicts.json")
 MANIFEST = "manifest.json"
 
@@ -106,21 +109,55 @@ def build(attempt_dir: Path, out: Path | None = None) -> tuple[Path, str]:
             for rel in files
         ],
     }
-    name = f"{paper}-{attempt}.tar.gz" if attempt is not None else f"{paper}.tar.gz"
+    name = f"{paper}-{attempt}.zip" if attempt is not None else f"{paper}.zip"
     out = Path(out) if out else root / name
     raw = io.BytesIO()
-    with gzip.GzipFile(fileobj=raw, mode="wb", mtime=0) as gz:
-        with tarfile.open(fileobj=gz, mode="w", format=tarfile.PAX_FORMAT) as tar:
-            entries = [(MANIFEST, (json.dumps(manifest, indent=2) + "\n").encode())]
-            entries += [(rel, (root / rel).read_bytes()) for rel in files]
-            for rel, data in entries:
-                info = tarfile.TarInfo(rel)
-                info.size, info.mtime, info.mode = len(data), 0, 0o644
-                info.uid = info.gid = 0
-                info.uname = info.gname = ""
-                tar.addfile(info, io.BytesIO(data))
+    with zipfile.ZipFile(raw, mode="w", compression=zipfile.ZIP_DEFLATED) as archive:
+        entries = [(MANIFEST, (json.dumps(manifest, indent=2) + "\n").encode())]
+        entries += [(rel, (root / rel).read_bytes()) for rel in files]
+        for rel, data in entries:
+            info = zipfile.ZipInfo(rel, date_time=ZIP_TIME)
+            info.compress_type = zipfile.ZIP_DEFLATED
+            info.create_system = 3  # unix, so the mode below is honoured
+            info.external_attr = 0o644 << 16
+            archive.writestr(info, data)
     out.write_bytes(raw.getvalue())
     return out, sha256_bytes(raw.getvalue())
+
+
+def _safe_name(name: str) -> str:
+    path = PurePosixPath(name)
+    if not name or path.is_absolute() or ".." in path.parts or "\\" in name:
+        raise BundleError(f"unsafe or unexpected entry in bundle: {name}")
+    return name
+
+
+def read_entries(data: bytes) -> dict[str, bytes]:
+    """Every file in a .zip or (older) .tar.gz bundle, by name, after path checks."""
+    contents: dict[str, bytes] = {}
+    if data[:2] == b"PK":
+        try:
+            archive = zipfile.ZipFile(io.BytesIO(data))
+        except zipfile.BadZipFile as exc:
+            raise BundleError(f"not a readable .zip: {exc}") from None
+        with archive:
+            for info in archive.infolist():
+                if info.is_dir():
+                    raise BundleError(f"unsafe or unexpected entry in bundle: {info.filename}")
+                if (info.external_attr >> 16) & 0o170000 == 0o120000:
+                    raise BundleError(f"unsafe or unexpected entry in bundle (symlink): {info.filename}")
+                contents[_safe_name(info.filename)] = archive.read(info)
+        return contents
+    try:
+        tar = tarfile.open(fileobj=io.BytesIO(data), mode="r:gz")
+    except (tarfile.TarError, OSError) as exc:
+        raise BundleError(f"not a readable .zip or .tar.gz: {exc}") from None
+    with tar:
+        for member in tar.getmembers():
+            if not member.isfile():
+                raise BundleError(f"unsafe or unexpected entry in bundle: {member.name}")
+            contents[_safe_name(member.name)] = tar.extractfile(member).read()
+    return contents
 
 
 def verify(bundle: Path, expected_sha256: str | None = None) -> dict:
@@ -129,17 +166,7 @@ def verify(bundle: Path, expected_sha256: str | None = None) -> dict:
     sha = sha256_bytes(data)
     if expected_sha256 and sha != expected_sha256.lower():
         raise BundleError(f"sha256 mismatch: expected {expected_sha256}, bundle is {sha}")
-    try:
-        tar = tarfile.open(fileobj=io.BytesIO(data), mode="r:gz")
-    except (tarfile.TarError, OSError) as exc:
-        raise BundleError(f"not a readable .tar.gz: {exc}") from None
-    contents = {}
-    with tar:
-        for member in tar.getmembers():
-            path = PurePosixPath(member.name)
-            if path.is_absolute() or ".." in path.parts or not member.isfile():
-                raise BundleError(f"unsafe or unexpected entry in bundle: {member.name}")
-            contents[member.name] = tar.extractfile(member).read()
+    contents = read_entries(data)
     if MANIFEST not in contents:
         raise BundleError("bundle has no manifest.json")
     manifest = json.loads(contents.pop(MANIFEST))
@@ -165,8 +192,10 @@ def extract(bundle: Path, dest: Path, expected_sha256: str | None = None) -> dic
     if dest.exists() and any(dest.iterdir()):
         raise BundleError(f"{dest} is not empty")
     dest.mkdir(parents=True, exist_ok=True)
-    with tarfile.open(bundle, mode="r:gz") as tar:
-        tar.extractall(dest, filter="data")
+    for name, data in read_entries(Path(bundle).read_bytes()).items():
+        target = dest / name  # names are checked: relative, no "..", no symlinks
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(data)
     return manifest
 
 

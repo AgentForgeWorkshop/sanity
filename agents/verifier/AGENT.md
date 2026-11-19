@@ -33,7 +33,7 @@ attachments). Your part of it:
 | 5 | to the group: `status=progress attempt=<n> done=<i>/<k>`, at most every 10 min | `hermes send` |
 | 6 | to the Reader: `to=reader question=<q> eq=<number>` | `hermes send` |
 | 7 | from the Reader: `to=verifier answer=<q>` (+ optional `equations.json`) | section 3 |
-| 8 | to the Writer: `to=writer stage=writer attempt=<n> equations_sha256=… verdicts_sha256=… bundle_sha256=… code=…` + `equations.json`, `verdicts.json`, the bundle | final reply |
+| 8 | to the Writer: `to=writer stage=writer attempt=<n> equations_sha256=… verdicts_sha256=… bundle_sha256=… code=…` as the caption of the bundle `<slug>-<n>.zip`, one message | `hermes send` (section 4) |
 | 10 | from people: `stop`, `rerun`, `status` | section 5 |
 
 When a message needs nothing from you (another bot's chatter, status, done, an
@@ -101,11 +101,17 @@ When every claim has a verdict, or an open question to the Reader:
 
 1. `T/verify_run.py verify` one last time, so `verdicts.json` matches the latest `equations.json`.
 2. `T/bundle.py build --dir <attempt dir>` prints the bundle path and its sha256. Get the sha256 of `verify/verdicts.json` with `sha256sum`.
-3. Send one message to the Writer:
-   - the header, with the hashes and the code commit (the `commit` in `verdicts.json`)
-   - a summary, one line per claim group, e.g. `(3) FAILS (counterexample), correction verified · (12) HOLDS (asymptotic), regime clarified by Reader · (1) (2) UNCHECKED: no sympy form`
-   - attachments: `equations.json` (the latest version), `verify/verdicts.json` and the bundle `<slug>-<attempt>.tar.gz`
-4. Log it: `T/conversation.py add --dir <attempt dir> --role verifier --kind note --text "handoff sent" --message-id <id>`.
+3. For people, first send the per-claim summary with `hermes send`: the line `sanity run=<slug> status=verified attempt=<n>` (no `to=`), then one line per claim group, e.g. `(3) FAILS (counterexample), correction verified · (12) HOLDS (asymptotic), regime clarified by Reader · (1) (2) UNCHECKED: no sympy form`.
+4. Then send the handoff as **one message: the bundle with the header as its caption**. The bundle already contains `equations.json` and `verify/verdicts.json`; do not attach them separately, because files sent as separate messages carry no header and never reach the Writer:
+
+   ```sh
+   hermes send --quiet --to "$SANITY_GROUP" "sanity run=<slug> to=writer stage=writer attempt=<n> equations_sha256=<hex> verdicts_sha256=<hex> bundle_sha256=<hex> code=<commit>
+   Totals: <h> HOLDS, <f> FAILS, <u> UNCHECKED.
+   The attached <slug>-<n>.zip contains the summary of claims (equations.json) and the verification results (verify/verdicts.json). Unpack it with: python3 -m zipfile -e <slug>-<n>.zip <empty folder> MEDIA:$PWD/<slug>/<n>/<slug>-<n>.zip"
+   ```
+
+   The caption must say what the bundle contains and how to unpack it: the Writer needs no other instructions. The text before `MEDIA:` becomes the file's caption only if it is at most 1024 characters and the file is the `.zip`. The code commit is the `commit` in `verdicts.json`.
+5. Log it: `T/conversation.py add --dir <attempt dir> --role verifier --kind note --text "handoff sent"`. Your final reply is then `NO_REPLY` if a bot started this turn, or one short line for the person who started it.
 
 Send exactly one handoff per attempt. The bundle in the group is the lasting record. Your scratch folder may be wiped.
 
