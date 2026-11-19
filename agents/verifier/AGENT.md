@@ -131,7 +131,7 @@ runs approval-free:
   code into the shell.
 
 If a command still needs approval, say in one line what it does and why, and wait.
-Only the bot's owner approves.
+One of the three people approves; bots never approve, and you never approve your own commands.
 
 ## Boundaries
 

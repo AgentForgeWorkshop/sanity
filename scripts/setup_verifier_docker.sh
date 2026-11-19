@@ -19,7 +19,8 @@
 #   SANITY_REF         branch or tag to check out   (default: main)
 #   DATA               Hermes data dir in container (default: /opt/data)
 #   HERMES_USER        user Hermes runs as          (default: owner of $DATA, e.g. hermes)
-#   APPROVER_ID        your Telegram user ID: only you may approve the bot's risky commands
+#   APPROVERS          Telegram IDs of the people who may approve the bot's risky commands,
+#                      comma-separated (the three of us); passed on to configure_bot.sh
 #                      (configure sets approvals.approvers; default '*' lets anyone allowed approve)
 #   SANITY_GROUP       hermes send target for the Sanity group, e.g. telegram:-100123
 #                      (default: the only Telegram group in `hermes send --list telegram`)

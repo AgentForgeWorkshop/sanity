@@ -129,7 +129,7 @@ Also:
 | `TELEGRAM_ALLOWED_USERS` (`.env`) | the three people, the other two bots, the group | bot-to-bot messages are blocked otherwise |
 | `gateway.bot_loop_guard.bot_replies_expect_reply` | `true` | otherwise questions and answers between bots are dropped |
 | `gateway.bot_loop_guard.max_hops` | `8` | a handoff plus up to 3 questions with answers |
-| `approvals.approvers` | the bot owner's Telegram ID | only the owner approves risky commands |
+| `approvals.approvers` | the three people's Telegram IDs | any person may approve risky commands; no bot can |
 | `skills.auto_load` | includes `sanity-protocol` | this skill |
 | @BotFather | privacy off, Bot-to-Bot Communication Mode on | bots see each other only with it |
 

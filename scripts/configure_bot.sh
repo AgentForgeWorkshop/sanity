@@ -2,7 +2,7 @@
 # Configure a Hermes bot for its Sanity role: persona, shared protocol, wake word,
 # loop guard, approvals. One command per bot; safe to run again.
 #
-#   APPROVER_ID=<your Telegram ID> bash scripts/configure_bot.sh reader     # or writer, verifier
+#   APPROVERS=<id>,<id>,<id> bash scripts/configure_bot.sh reader     # or writer, verifier
 #   bash scripts/configure_bot.sh check reader                              # only report, change nothing
 #
 # Where Hermes runs (environment variables):
@@ -13,7 +13,9 @@
 #   HERMES_HOME        a different Hermes home (for testing)                 default: Hermes' own
 #
 # What it sets (backups of SOUL.md, config.yaml and .env first, as *.bak-<time>):
-#   APPROVER_ID        only this Telegram user may approve the bot's risky commands
+#   APPROVERS          comma-separated Telegram user IDs of the people who may approve the
+#                      bot's risky commands: the three of us (not the bots). APPROVER_ID=<id>
+#                      is the same for one person. Unset: approvals.approvers stays as it is.
 #   SANITY_GROUP       the group as a `hermes send` target (telegram:-100...);
 #                      default: the only Telegram group in `hermes send --list telegram`
 #   KEEP_SOUL=1        keep your own persona; only list the communication sections to merge
@@ -163,12 +165,15 @@ EOF
   hermes_raw config set gateway.bot_loop_guard.bot_replies_expect_reply true >/dev/null
   hermes_raw config set gateway.bot_loop_guard.max_hops 8 >/dev/null
   echo "  gateway.bot_loop_guard: bot_replies_expect_reply true, max_hops 8"
-  if [ -n "${APPROVER_ID:-}" ]; then
-    printf '%s' "$APPROVER_ID" | grep -Eq '^[0-9]{5,15}$' || die "APPROVER_ID must be a numeric Telegram user ID"
-    hermes_raw config set approvals.approvers "[\"$APPROVER_ID\"]" >/dev/null
-    echo "  approvals.approvers = $APPROVER_ID only"
+  local approvers_in="${APPROVERS:-${APPROVER_ID:-}}"
+  if [ -n "$approvers_in" ]; then
+    approvers_in="$(printf '%s' "$approvers_in" | tr -d ' ')"
+    printf '%s' "$approvers_in" | grep -Eq '^[0-9]{5,15}(,[0-9]{5,15})*$' \
+      || die "APPROVERS must be comma-separated numeric Telegram user IDs"
+    hermes_raw config set approvals.approvers "$(printf '%s\n' "$approvers_in" | tr ',' '\n' | json_list)" >/dev/null
+    echo "  approvals.approvers = $approvers_in"
   else
-    echo "  ! approvals.approvers unchanged: set APPROVER_ID=<your Telegram ID> so only you approve commands" >&2
+    echo "  ! approvals.approvers unchanged: set APPROVERS=<id>,<id>,<id> (the three people) so bots cannot approve" >&2
   fi
 
   say "refresh running sessions"
@@ -224,7 +229,10 @@ EOF
   if [ "$expect" = true ] && [ "$hops" -ge 8 ] 2>/dev/null; then ok "loop guard: bot_replies_expect_reply true, max_hops $hops"
   else bad "loop guard: bot_replies_expect_reply=$expect max_hops=$hops (needs true and 8)"; fi
   approvers="$(hermes_raw config get approvals.approvers | yaml_list | tr '\n' ' ')"
-  case "$approvers" in *'*'*|"") bad "approvals.approvers = '${approvers:-*}': anyone allowed may approve; set APPROVER_ID" ;; *) ok "approvals.approvers: $approvers" ;; esac
+  case "$approvers" in
+    *'*'*|"") bad "approvals.approvers = '${approvers:-*}': anyone allowed, bots included, may approve; set APPROVERS=<the three people's IDs>" ;;
+    *) ok "approvals.approvers: $approvers($(printf '%s' "$approvers" | wc -w | tr -d ' ') person/people)" ;;
+  esac
   printf '  ? @BotFather: Bot-to-Bot Communication Mode on, group privacy off (cannot be checked from here)\n'
   if [ "$ISSUES" = 0 ]; then echo; echo "ready: the $ROLE bot follows skills/sanity-protocol"; else echo; echo "$ISSUES thing(s) to fix (marked !)"; fi
 }

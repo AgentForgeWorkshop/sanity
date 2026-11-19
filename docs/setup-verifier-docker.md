@@ -78,7 +78,8 @@ running sessions keep the old instructions.
 Hermes asks for approval before commands it considers risky (e.g. scripts passed
 through a heredoc), and by default (`approvals.approvers: ['*']`) anyone the bot
 accepts may approve, including the other people in the group. Run `configure` with
-`APPROVER_ID=<your Telegram user ID>` so only you can approve commands on your
+`APPROVERS=<id>,<id>,<id>` (the three people's Telegram IDs) so only people, not the
+bots, can approve commands on your
 machine. The Verifier's instructions avoid such commands: it writes scripts with its
 file tool and runs them as files.
 
