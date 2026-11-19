@@ -24,6 +24,7 @@ skills:
     - "/opt/data/sanity/skills"   # the sanity code checkout, read-only
   auto_load:
     - verify-math
+    - sanity-protocol   # shared message protocol (skills/sanity-protocol)
 
 gateway:
   bot_loop_guard:

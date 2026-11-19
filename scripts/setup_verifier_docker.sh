@@ -220,7 +220,7 @@ echo ".env: SANITY_REPO, SANITY_PYTHON set; TELEGRAM_REQUIRE_MENTION=true; wake 
 EOF
   hermes_cmd config set terminal.cwd "$SCRATCH" >/dev/null
   hermes_cmd config set skills.external_dirs "[\"$REPO/skills\"]" >/dev/null
-  hermes_cmd config set skills.auto_load '["verify-math"]' >/dev/null
+  hermes_cmd config set skills.auto_load '["verify-math", "sanity-protocol"]' >/dev/null
   # Hermes' bot loop guard: by default a bot's reply to our message is not answered,
   # which would drop the Reader's answers to the Verifier's questions.
   hermes_cmd config set gateway.bot_loop_guard.bot_replies_expect_reply true >/dev/null
@@ -241,7 +241,7 @@ EOF
   echo "config: terminal.cwd=$cwd  skills.external_dirs=$dirs  skills.auto_load=$load"
   [ "$cwd" = "$SCRATCH" ] || die "terminal.cwd was not set (got '$cwd'); edit config.yaml by hand"
   case "$dirs" in *"$REPO/skills"*) ;; *) die "skills.external_dirs was not set; edit config.yaml by hand" ;; esac
-  case "$load" in *verify-math*) ;; *) die "skills.auto_load was not set; edit config.yaml by hand" ;; esac
+  case "$load" in *verify-math*sanity-protocol*|*sanity-protocol*verify-math*) ;; *) die "skills.auto_load was not set (needs verify-math and sanity-protocol); edit config.yaml by hand" ;; esac
   local expect hops
   expect="$(hermes_cmd config get gateway.bot_loop_guard.bot_replies_expect_reply | tail -1 | tr -d "' \"")"
   hops="$(hermes_cmd config get gateway.bot_loop_guard.max_hops | tail -1 | tr -d "' \"")"

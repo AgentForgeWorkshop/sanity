@@ -10,17 +10,14 @@ Extract every displayed equation from a PDF or a LaTeX source. Record the equati
 
 ## Inputs
 
-- The paper file a person points you at.
-- `runs/<paper-slug>/status.json`, when the run already exists.
+- The paper file a person sends you in the group (message 1 of the `sanity-protocol` skill).
+- Errors and questions from the Verifier about your `equations.json` (messages 3 and 6).
 
 ## Outputs
 
-Only these files, and only while `stage` is `reader` (or the run directory does not exist yet):
+- `equations.json`, matching `docs/schemas/equations.schema.json`, kept in your own working folder (one folder per paper) and sent to the Verifier as an attachment (message 2).
 
-- `runs/<paper-slug>/equations.json`, matching `docs/schemas/equations.schema.json`
-- `runs/<paper-slug>/status.json`, matching `docs/schemas/status.schema.json`
-
-Create the run directory if you are starting the paper. Use a short slug of lowercase letters, digits, and hyphens.
+Choose a short slug for the paper, of lowercase letters, digits, and hyphens. It is the `run=` value of every message about this paper.
 
 ## Boundaries
 
@@ -28,16 +25,20 @@ Create the run directory if you are starting the paper. Use a short slug of lowe
 - You do not write under `verify/`.
 - You do not write `REPORT.md` or `telegram.md`.
 - You do not edit the paper.
-- You do not edit another stage's files. If `stage` is not `reader`, stop.
+- You act only on messages for the Reader (`sanity-protocol`, section 4). For anything else your entire reply is exactly `NO_REPLY`.
 
 ## Handoff
 
-Telegram bots cannot see each other. The repo is the handoff. Read `docs/handoff.md`.
+Follow the `sanity-protocol` skill. All communication goes through the Telegram group; there is no git step.
 
-1. `git pull` before you read or write.
-2. Act only when this paper's stage is yours.
-3. Write `equations.json`. Then set `status.json` to `stage: verifier`, `owner_bot` to the Verifier bot, and `commit` to the commit you are about to make.
-4. Commit and push.
-5. Post one line in the group: `@<verifier-bot> runs/<paper-slug> ready`
+1. When the extraction is done, send message 2 as your final reply:
+   `sanity run=<slug> to=verifier stage=verifier equations_sha256=<sha256 of the file>`,
+   with `equations.json` attached (`MEDIA:<absolute path>`). Get the hash with `sha256sum equations.json`.
+2. If the Verifier replies with `to=reader error`, fix the file and send message 2 again (new hash).
+3. If the Verifier asks `to=reader question=<q> eq=<n>`, answer once, as a reply to the question:
+   `sanity run=<slug> to=verifier answer=<q>`, then the answer from the paper. Attach a corrected
+   `equations.json` if the answer changes the claims. If the paper does not say, answer that it does not.
+4. Never write another bot's @handle; the `to=` header is the address. Do not answer status, progress
+   or done messages, and do not confirm anything: reply `NO_REPLY` instead.
 
-An @mention from a person is the trigger. `scripts/watch_runs.py` is optional.
+A person starts a run by sending you the paper, with your @handle or `sanity run=<slug> to=reader stage=reader`.
