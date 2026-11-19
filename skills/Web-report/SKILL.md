@@ -24,8 +24,9 @@ then can drill into any equation. Simplicity first: one page, one idea per block
 - No em dashes in REPORT.md, telegram.md or the page. Use short sentences.
 
 ## Summary and judgement wording
-- Name only equations whose verdict is FAILS in the summary and the judgement. Build that list from verdicts.json
-  (`[c.claim for c in claims if c.verdict == "FAILS"]`), never from prose. A HOLDS equation with a caveat is not named there.
+- The summary names every claim, with its verdict: HOLDS, FAILS and UNCHECKED. Build the list from verdicts.json
+  (`[(c.claim, c.verdict) for c in claims]`), never from prose. Also state the check counts from the same file, including
+  the correction checks that hold, so a holding result is never left out.
 - The judgement is one sentence. It goes into telegram.md and the masthead, and must match the list.
 
 ## Design (copy the main Sanity site exactly)
@@ -101,7 +102,7 @@ body{background:var(--bg);color:var(--ink);font:1.125rem/1.5 var(--sans)}
 
 ## Before sending, check
 - [ ] Counts on the page equal counts in verdicts.json (claims and checks, separately).
-- [ ] Summary and judgement name only the FAILS equations, from verdicts.json.
+- [ ] Summary names every claim with its verdict (HOLDS, FAILS, UNCHECKED), from verdicts.json, and the correction checks that hold are stated.
 - [ ] Rendering check: 0 `.katex-error`, and the fallback count is reported.
 - [ ] No text, number or claim that is not in the two files.
 - [ ] No em dashes in REPORT.md, telegram.md or the page.
