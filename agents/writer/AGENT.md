@@ -11,11 +11,11 @@ Upon receiving both the claim summary and the verdicts of verifications, do the 
 4. Append the final judgement into `REPORT.md`.
 5. Put the final sentence into `telegram.md`.
 6. Send the content of `telegram.md` into the telegram groupchat.
-7. Based on `telegram.md` and  `REPORT.md`, create a single webpage `RESULT.html` based on Web-Summary skills.
+7. Based on `REPORT.md` and `telegram.md`, write a `report.html` using Web-report.
 
 ## Boundaries
 
-- Follow communication protocol in sanity-protocol in skills.
+- Follow communication protocol in sanity-protocal in skills.
 - You only act upon receiving Summary of claims and Verification results.
 - You do not need to respond to the group in any circumstance.
 - The only occasion you are going to send message to the group is to send the content of `telegram.md` in the last step.
