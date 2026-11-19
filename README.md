@@ -115,6 +115,23 @@ Use `verifier` or `writer` for the other roles. Windows: `scripts/setup_bot.ps1`
 5. Replace `${SANITY_REPO}` and the model placeholders in the copied `config.yaml`.
 6. Start that profile's gateway. In the group, a person talks to the bot, or another bot sends `sanity run=<slug> to=<role>`. The Verifier answers with the plan and the estimate, then checks.
 
+### Configure your bot for the protocol
+
+After the steps above, one command sets everything the bots need to talk to each other: the role's persona, the shared protocol skill [skills/sanity-protocol/SKILL.md](skills/sanity-protocol/SKILL.md), the `to=<role>` wake word, mention-only, the group target, the loop guard, and who may approve commands. Run it from an up-to-date clone, with the Telegram IDs of the three people:
+
+```bash
+git pull
+APPROVERS=<id>,<id>,<id> bash scripts/configure_bot.sh reader     # or writer, verifier
+```
+
+Hermes in Docker: add `HERMES_CONTAINER=<name> SANITY_REPO=<repo path inside the container>`. A Hermes profile: add `HERMES_PROFILE=<name>`. `KEEP_SOUL=1` keeps your own persona. The script backs up `SOUL.md`, `config.yaml` and `.env`, restarts the gateway, and ends with a check. The Verifier in Docker uses `bash scripts/setup_verifier_docker.sh install`, then `APPROVERS=<id>,<id>,<id> bash scripts/setup_verifier_docker.sh configure`, which runs the same script ([docs/setup-verifier-docker.md](docs/setup-verifier-docker.md)).
+
+Two steps stay manual: in @BotFather, switch on Bot-to-Bot Communication Mode for the bot, and list the three people, the two other bots and the group in `TELEGRAM_ALLOWED_USERS`. To see what is still missing, without changing anything:
+
+```bash
+bash scripts/configure_bot.sh check reader     # or writer, verifier
+```
+
 `scripts/watch_runs.py` is an optional poller. It does not post. Group setup: [docs/telegram.md](docs/telegram.md). The Verifier's messages: [agents/verifier/AGENT.md](agents/verifier/AGENT.md).
 
 ## Lean specimen
