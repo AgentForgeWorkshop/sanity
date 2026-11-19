@@ -2,7 +2,7 @@
 
 Sanity checks the equations in a paper. A Reader lifts each displayed equation. A Verifier re-derives it in SymPy, and can add a Lean proof when the claim can be stated. A Writer turns those script verdicts into a report. A verdict exists only if a check script printed it: `HOLDS`, `FAILS`, or `UNCHECKED`. The Writer does not change one.
 
-The three bots share one Telegram group and talk to each other there. Bot-to-Bot Communication Mode is on, so a bot sees the others' messages. Each machine message starts with `sanity run=<slug>` and names who should act with `to=<role>` (`to=reader`, `to=verifier`, `to=writer`). The Verifier posts a plan and a time estimate at the start of a run, before any check, then one handoff `to=writer` when the verdicts are in. The run directory keeps the files. See [agents/verifier/AGENT.md](agents/verifier/AGENT.md) and [docs/setup-verifier-docker.md](docs/setup-verifier-docker.md).
+The three bots share one Telegram group and talk to each other there. Bot-to-Bot Communication Mode is on, so a bot sees the others' messages. Each machine message starts with `sanity run=<slug>` and names who should act with `to=<role>` (`to=reader`, `to=verifier`, `to=writer`). The Verifier posts a plan and a time estimate at the start of a run, before any check, then one handoff `to=writer` when the verdicts are in. Files travel as Telegram attachments; each bot keeps its own working copies. The whole message protocol is the shared skill [skills/sanity-protocol/SKILL.md](skills/sanity-protocol/SKILL.md). See also [agents/verifier/AGENT.md](agents/verifier/AGENT.md) and [docs/setup-verifier-docker.md](docs/setup-verifier-docker.md).
 
 On [arXiv:2410.11128v1](https://arxiv.org/abs/2410.11128v1), Eq. (4.4) prints the wrong horizon angular velocity. Sanity flags it and proposes the same replacement the authors later recorded. The run is [runs/arxiv-2410-11128/](runs/arxiv-2410-11128/). The page is <https://ilkhamfy.github.io/sanity/demo.html>.
 
@@ -12,30 +12,26 @@ On [arXiv:2410.11128v1](https://arxiv.org/abs/2410.11128v1), Eq. (4.4) prints th
 
 ```mermaid
 flowchart TD
-  paper["PDF or LaTeX"] --> reader["Reader agent"]
-  reader --> eqs["runs/slug/equations.json"]
-  eqs --> sympy["Verifier: SymPy screen, every equation"]
-  sympy -->|flagged step| formalize["LLM writes a Lean 4 + Mathlib statement"]
-  formalize --> lean["Lean proves or refutes"]
-  sympy --> rule["Verifier confirms or rejects from the script verdict"]
-  lean --> rule
-  rule --> results["runs/slug/verify/RESULTS.md"]
-  results --> writer["Writer agent"]
-  writer --> report["REPORT.md, telegram.md, correction text"]
-  report --> group["Telegram group"]
+  paper["PDF or LaTeX, from a person"] --> reader["Reader bot"]
+  reader -->|"to=verifier + equations.json"| sympy["Verifier: SymPy, asymptotics or sampling, per claim"]
+  sympy -->|"central exact claims, or on request"| lean["Lean 4 proves the claim or its negation"]
+  sympy --> verdicts["verdicts.json: HOLDS, FAILS, UNCHECKED + evidence"]
+  lean --> verdicts
+  sympy -.->|"to=reader question (optional)"| reader
+  verdicts -->|"to=writer + equations.json, verdicts.json, bundle"| writer["Writer bot"]
+  writer -->|"status=done + REPORT.md"| group["Telegram group"]
   group --- humans["Three people"]
-  group --- bots["Reader, Verifier, and Writer bots"]
 ```
 
-The group is the handoff. A message with `to=writer` carries the verdicts. A status line has no `to=`, so it wakes no bot. Lean outranks a SymPy result when both settle the same claim. A SymPy pass does not go to Lean. The Writer does not get a vote on the verdict.
+The group is the handoff: every message names its target with `to=<role>`, and files travel as attachments. A status line has no `to=`, so it wakes no bot. Lean is extra evidence for a few central exact claims, always after SymPy: a Lean `proof` or `refutation` outranks a SymPy result for the same claim. The Writer does not get a vote on the verdict.
 
 ## Roles
 
-| Agent | Writes | Does not |
+| Agent | Produces (sent in the group) | Does not |
 | --- | --- | --- |
-| Reader | `runs/<slug>/equations.json` | check, judge, or edit the paper |
-| Verifier | `runs/<slug>/verify/` and `RESULTS.md` | edit the paper, the extraction, or the report |
-| Writer | `REPORT.md`, `telegram.md`, the correction text | change a verdict, or edit a check |
+| Reader | `equations.json`, to the Verifier | check, judge, or edit the paper |
+| Verifier | `verdicts.json` and an evidence bundle (checks, `PLAN.md`, `RESULTS.md`), to the Writer | open the paper, edit the extraction, or write the report |
+| Writer | `REPORT.md` and its summary, to the group (`status=done`) | change a verdict, or check the math itself |
 
 Role prompts: `agents/reader/AGENT.md`, `agents/verifier/AGENT.md`, `agents/writer/AGENT.md`.
 
@@ -47,9 +43,9 @@ brand/     logo, mark, favicon
 agents/    reader, verifier (SymPy + Lean), writer
 docs/      Telegram, handoff, setup, schemas
 hermes/    example profile per role, no tokens
-runs/      one directory per paper
-scripts/   setup_bot, watch_runs
-skills/    verify-math
+runs/      worked examples, used by the tests
+scripts/   configure_bot (any bot), setup_verifier_docker, setup_bot
+skills/    verify-math, sanity-protocol
 ```
 
 ## Quickstart
@@ -109,9 +105,9 @@ Use `verifier` or `writer` for the other roles. Windows: `scripts/setup_bot.ps1`
 ## How to add your bot
 
 1. Create one bot with [@BotFather](https://t.me/BotFather). One token, one role.
-2. `/setprivacy` → Disable. Remove the bot from the group and add it again.
-3. Lock it to the three teammates' Telegram user IDs. Placeholders live in `hermes/<role>/env.example`. Do not commit a token.
-4. Run `scripts/setup_bot.sh` or `scripts/setup_bot.ps1` for that role. It copies the example profile and installs `agents/<role>/AGENT.md` as `SOUL.md`. The profile loads `skills/verify-math`.
+2. `/setprivacy` → Disable, and switch on Bot-to-Bot Communication Mode. Remove the bot from the group and add it again.
+3. Lock it to the three teammates' Telegram user IDs, the two other bots and the group. Placeholders live in `hermes/<role>/env.example`. Do not commit a token.
+4. Run `scripts/setup_bot.sh` or `scripts/setup_bot.ps1` for that role. It copies the example profile and installs `agents/<role>/AGENT.md` as `SOUL.md`. The profile loads `skills/verify-math` and `skills/sanity-protocol`.
 5. Replace `${SANITY_REPO}` and the model placeholders in the copied `config.yaml`.
 6. Start that profile's gateway. In the group, a person talks to the bot, or another bot sends `sanity run=<slug> to=<role>`. The Verifier answers with the plan and the estimate, then checks.
 
@@ -132,7 +128,7 @@ Two steps stay manual: in @BotFather, switch on Bot-to-Bot Communication Mode fo
 bash scripts/configure_bot.sh check reader     # or writer, verifier
 ```
 
-`scripts/watch_runs.py` is an optional poller. It does not post. Group setup: [docs/telegram.md](docs/telegram.md). The Verifier's messages: [agents/verifier/AGENT.md](agents/verifier/AGENT.md).
+Group setup: [docs/telegram.md](docs/telegram.md). The Verifier's messages: [agents/verifier/AGENT.md](agents/verifier/AGENT.md).
 
 ## Lean specimen
 
